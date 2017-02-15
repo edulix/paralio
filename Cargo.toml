@@ -1,0 +1,9 @@
+[package]
+name = "parallel_pg_select_dump"
+version = "0.1.0"
+authors = ["Eduardo Robles Elvira <edulix@nvotes.com>"]
+
+[dependencies]
+time = "0.1"
+postgres = "0.13"
+clap = {version = "2.20.3", features = ["yaml"]}

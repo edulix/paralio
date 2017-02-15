@@ -1,0 +1,49 @@
+name: parallel_pg_select_dump
+version: "1.0"
+author: Eduardo Robles Elvira <edulix@nvotes.com>
+about: Executes an SQL select query in multiple threads in parallel
+args:
+    - query:
+        short: q
+        long: query
+        value_name: QUERY
+        help: SQL select sentence to execute (without any limit or offset)
+        takes_value: true
+        required: true
+    - count-query:
+        short: n
+        long: count-query
+        value_name: COUNT_QUERY
+        help: SQL select count sentence to execute (without any limit or offset)
+        takes_value: true
+        required: true
+    - jobs:
+        short: j
+        long: jobs
+        value_name: NJOBS
+        help: Run the dump in parallel by dumping njobs tables simultaneously
+        takes_value: true
+        required: true
+        default_value: "1"
+    - directory:
+        short: d
+        long: directory
+        value_name: DIR
+        help: "Output directory. Files will be created with thread name as file name"
+        takes_value: true
+        required: true
+    - separator:
+        short: s
+        long: separator
+        value_name: SEPARATOR
+        help: "Field separator for example ',' for CSV format"
+        takes_value: true
+        required: true
+        default_value: ","
+    - connection:
+        short: c
+        long: connection
+        value_name: CONNECTION
+        help: "Connection string, for example: postgres://postgres@localhost"
+        takes_value: true
+        required: true
