@@ -32,11 +32,23 @@ args:
         help: "Output directory. Files will be created with thread name as file name"
         takes_value: true
         required: true
+    - batch-size:
+        short: b
+        long: batch-size
+        value_name: SIZE
+        help: "Batch size. Defaults to 100000"
+        takes_value: true
+        required: true
+        default_value: "100000"
+    - verbose:
+        short: v
+        long: verbose
+        help: "Print verbose info during execution"
     - separator:
         short: s
         long: separator
         value_name: SEPARATOR
-        help: "Field separator for example ',' for CSV format"
+        help: "Field separator for example ',' for CSV format (the default)"
         takes_value: true
         required: true
         default_value: ","

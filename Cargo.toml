@@ -1,5 +1,5 @@
 [package]
-name = "parallel_pg_select_dump"
+name = "paralio"
 version = "0.1.0"
 authors = ["Eduardo Robles Elvira <edulix@nvotes.com>"]
 

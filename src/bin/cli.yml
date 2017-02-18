@@ -1,0 +1,73 @@
+name: pjoin
+version: "1.0"
+author: Eduardo Robles Elvira <edulix@nvotes.com>
+about: Executes a join on two files
+args:
+    - file1:
+        short: a
+        long: file1
+        value_name: FILE1
+        help: List of files in order representing the sorted first input file
+        takes_value: true
+        multiple: true
+        required: true
+    - file2:
+        short: b
+        long: file2
+        value_name: FILE2
+        help: List of files in order representing the sorted second input file
+        takes_value: true
+        multiple: true
+        required: true
+    - separator:
+        short: s
+        long: separator
+        value_name: SEPARATOR
+        help: "Field separator for example ',' for CSV format (the default)"
+        takes_value: true
+        required: true
+        default_value: ','
+    - field1:
+        short: '1'
+        long: field1
+        value_name: FIELD1
+        help: "join on this FIELD of input file 1"
+        takes_value: true
+        required: true
+        default_value: "0"
+    - field2:
+        short: '2'
+        long: field2
+        value_name: FIELD1
+        help: "join on this FIELD of input file 2"
+        takes_value: true
+        required: true
+        default_value: "0"
+    - output-fields:
+        short: f
+        long: output-fields
+        value_name: OUTPUTFIELDS
+        help: "List of output fields"
+        takes_value: true
+        required: true
+        multiple: true
+        default_value: "1.0"
+    - output:
+        short: o
+        long: output
+        value_name: PATH
+        help: "Output file or directory. If hsing more than 1 --jobs, --output must be a directory and the output will be multiple numbered and ordered files, one per thread"
+        takes_value: true
+        required: true
+    - verbose:
+        short: v
+        long: verbose
+        help: "Print verbose info during execution"
+    - jobs:
+        short: j
+        long: jobs
+        value_name: NJOBS
+        help: "Run the dump in parallel by dumping njobs tables simultaneously [currently not implemented]"
+        takes_value: true
+        required: true
+        default_value: "1"
