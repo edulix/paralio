@@ -6,4 +6,5 @@ authors = ["Eduardo Robles Elvira <edulix@nvotes.com>"]
 [dependencies]
 time = "0.1"
 postgres = "0.13"
+tempdir = "0.3.5"
 clap = {version = "2.20.3", features = ["yaml"]}

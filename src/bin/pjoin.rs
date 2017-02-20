@@ -13,7 +13,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
 **/
-
 #[macro_use]
 extern crate clap;
 
@@ -46,7 +45,7 @@ fn main()
   let output_path = matches.value_of("output").unwrap().to_string();
 
   let verbose: bool = matches.is_present("verbose");
-
+/*
   let mut out = OutputFile::new(
     separator,
     verbose,
@@ -83,7 +82,7 @@ fn main()
       },
       _=> break,
     }
-  }
+  }*/
 
   // TODO
   // let njobs: i32 = matches.value_of("jobs").unwrap().parse().unwrap();

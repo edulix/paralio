@@ -14,11 +14,11 @@
  * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-use MultiFileReader;
+use ReadLiner;
 
-pub struct LineReader
+pub struct LineReader<T>
 {
-  reader: MultiFileReader,
+  reader: T,
   separator: String,
   key_field: usize,
   last_parsed_line: Vec<String>,
@@ -26,13 +26,13 @@ pub struct LineReader
   verbose: bool,
 }
 
-impl LineReader
+impl<T: ReadLiner> LineReader<T>
 {
-  pub fn new(file_str_list: Vec<String>, separator: String, key_field: u32, verbose: bool) -> LineReader
+  pub fn new(reader: T, separator: String, key_field: u32, verbose: bool) -> LineReader<T>
   {
     LineReader
     {
-      reader: MultiFileReader::open(file_str_list),
+      reader: reader,
       separator: separator,
       key_field: key_field as usize,
       last_parsed_line: vec![String::new()],
@@ -52,7 +52,9 @@ impl LineReader
     self.finished = self.reader.read_line(&mut line1, self.verbose).unwrap() == 0;
     line1.pop();
     self.last_parsed_line = line1.split(self.separator.as_str()).map(String::from).collect();
-    println!("read this line: {}", line1);
+    if self.verbose {
+      println!("read this line: {}", line1);
+    }
   }
 
   pub fn key(&self) -> String
