@@ -13,9 +13,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
 **/
-use std;
-use std::fs;
-use std::io::prelude::*;
+
+use std::io::Result;
 
 use ReadLiner;
 use MultiFileReader;
@@ -50,17 +49,22 @@ impl ByteRangeLineReader
         };
         if i > 0 {
           let mut s: String = String::new();
-          ret.read_line(&mut s, false);
+          ret.read_line(&mut s, false).unwrap();
         }
         return ret
       }
     ).collect()
   }
+
+  fn pos(&self) -> u64
+  {
+    self.current
+  }
 }
 
 impl ReadLiner for ByteRangeLineReader
 {
-  fn read_line(&mut self, buf: &mut String, verbose: bool) -> std::io::Result<usize>
+  fn read_line(&mut self, buf: &mut String, verbose: bool) -> Result<usize>
   {
     if self.current <= self.end
     {
@@ -77,8 +81,6 @@ impl ReadLiner for ByteRangeLineReader
 #[cfg(test)]
 mod test
 {
-  use std;
-  use std::fs;
   use std::io::prelude::*;
   use std::fs::File;
 
@@ -121,8 +123,8 @@ mod test
         println!("write_files x.0={}, x.1={}", x.0, x.1);
         for fline in x.1.split(',')
         {
-          tmp_file.write(fline.as_bytes());
-          tmp_file.write(b"\n");
+          tmp_file.write(fline.as_bytes()).unwrap();
+          tmp_file.write(b"\n").unwrap();
         }
         return file_path
       }

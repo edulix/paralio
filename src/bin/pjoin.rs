@@ -18,13 +18,13 @@ extern crate clap;
 
 extern crate paralio;
 
-use clap::App;
+// use clap::App;
 
-use paralio::OutputFile;
+// use paralio::OutputFile;
 
 fn main()
 {
-  let yaml = load_yaml!("cli.yml");
+/*  let yaml = load_yaml!("cli.yml");
   let matches = App::from_yaml(yaml).get_matches();
 
   let file1_str_list: Vec<String> = matches.values_of("file1").unwrap()
@@ -45,7 +45,7 @@ fn main()
   let output_path = matches.value_of("output").unwrap().to_string();
 
   let verbose: bool = matches.is_present("verbose");
-/*
+
   let mut out = OutputFile::new(
     separator,
     verbose,

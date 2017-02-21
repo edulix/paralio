@@ -15,19 +15,19 @@
 **/
 // extern crate itertools;
 
-use std::fs::File;
-use std::io::BufWriter;
-use std::io::prelude::*;
+// use std::fs::File;
+// use std::io::BufWriter;
+// use std::io::prelude::*;
 // use itertools::Itertools;
 
-use LineReader;
-use MultiFileReader;
+// use LineReader;
+// use MultiFileReader;
 
 pub struct OutputFile {
-  separator: String,
-  verbose: bool,
-  output_file: BufWriter<File>,
-  output_fields: Vec<(bool, usize)>,
+//   separator: String,
+//   verbose: bool,
+//   output_file: BufWriter<File>,
+//   output_fields: Vec<(bool, usize)>,
 //   pub file1: LineReader<MultiFileReader>,
 //   pub file2: LineReader<MultiFileReader>,
 }

@@ -57,6 +57,11 @@ impl<T: ReadLiner> LineReader<T>
     }
   }
 
+  pub fn key_field(&self) -> usize
+  {
+    self.key_field
+  }
+
   pub fn key(&self) -> String
   {
     self.last_parsed_line[self.key_field].clone()

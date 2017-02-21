@@ -20,13 +20,22 @@ use std::fs::File;
 use std::io::SeekFrom;
 use std::io::BufReader;
 use std::io::prelude::*;
+use std::cmp;
+
+static BUFFER_SIZE: usize = 16384;
+
+pub struct FileInfo {
+  path: String,
+  start: u64,
+  end: u64
+}
 
 /*
  * Multi file reader allows to read line by line a vector of files just
  * like it was only one file
  */
 pub struct MultiFileReader {
-  file_list: Vec<String>,
+  files_info: Vec<FileInfo>,
   current_file_buffer: BufReader<File>,
   current_file_index: usize
 }
@@ -45,42 +54,75 @@ impl MultiFileReader
     )
   }
 
-  pub fn open(file_list: Vec<String>, start_offset: u64) -> MultiFileReader
+  pub fn get_files_info(path_list: Vec<String>) -> Vec<FileInfo>
   {
-    let mut size: u64 = 0;
-    file_list.clone().iter().enumerate().fold(
-      (0, None),
-      |
-        acc_tuple: (/*size*/u64, /*reader*/Option<MultiFileReader>),
-        path_tuple: (/*index*/usize, /*path*/&String)
-      | {
-        match acc_tuple.1 {
-          None => {
-            let f_size = fs::metadata(path_tuple.1).unwrap().len();
-            if f_size + acc_tuple.0 > start_offset
-            {
-              let mut f = File::open(path_tuple.1).unwrap();
-              f.seek(SeekFrom::Start(start_offset - acc_tuple.0));
-              return (
-                0,
-                Some(
-                  MultiFileReader
-                  {
-                    current_file_buffer: BufReader::new(f),
-                    file_list: file_list.clone(),
-                    current_file_index: path_tuple.0
-                  }
-                )
-              )
-            } else
-            {
-              return ((acc_tuple.0 + f_size) as u64, None)
-            }
-          },
-          Some(_) => return acc_tuple
+    let mut ret: Vec<FileInfo> = Vec::with_capacity(path_list.len());
+    let mut last_end: u64 = 0;
+    for path in path_list.iter()
+    {
+      let fsize = fs::metadata(path).unwrap().len();
+      ret.push(
+        FileInfo
+        {
+          path: path.clone(),
+          start: last_end,
+          end: last_end + fsize
         }
-      }
-    ).1.unwrap()
+      );
+      last_end += fsize;
+    }
+    return ret
+  }
+
+  pub fn find_file_info(files_info: &Vec<FileInfo>, pos: u64) -> usize
+  {
+    return match files_info.iter().enumerate().find(
+      |&(_, file_info)| {file_info.start <= pos && file_info.end > pos}
+    ) {
+      None => return files_info.len()-1,
+      Some((i, _)) => return i
+    }
+  }
+
+  pub fn seek(&mut self, pos: u64)
+  {
+    let (start, end) = {
+      let ref file_info = self.files_info[self.current_file_index];
+      (file_info.start, file_info.end)
+    };
+    if pos >= start && pos <= end
+    {
+      self.current_file_buffer.seek(SeekFrom::Start(pos - start)).unwrap();
+    }
+    else
+    {
+      self.current_file_index = MultiFileReader::find_file_info(&(self.files_info), pos);
+      let file = {
+        let ref file_info = self.files_info[self.current_file_index];
+        let mut file = File::open(file_info.path.clone()).unwrap();
+        file.seek(SeekFrom::Start(pos - file_info.start)).unwrap();
+        file
+      };
+      self.current_file_buffer = BufReader::new(file);
+    }
+  }
+
+  pub fn open(path_list: Vec<String>, pos: u64) -> MultiFileReader
+  {
+    let files_info: Vec<FileInfo> = MultiFileReader::get_files_info(path_list);
+    let file_index = MultiFileReader::find_file_info(&files_info, pos);
+    let file = {
+      let ref file_info = files_info[file_index];
+      let mut file = File::open(file_info.path.clone()).unwrap();
+      file.seek(SeekFrom::Start(pos - file_info.start)).unwrap();
+      file
+    };
+    return MultiFileReader
+    {
+      current_file_buffer: BufReader::new(file),
+      files_info: files_info,
+      current_file_index: file_index
+    }
   }
 }
 
@@ -98,15 +140,15 @@ impl ReadLiner for MultiFileReader
           _ =>
           {
             self.current_file_index += 1;
-            if self.current_file_index >= self.file_list.len()
+            if self.current_file_index >= self.files_info.len()
             {
               Ok(0)
             } else
             {
               if verbose {
-                println!("opening file '{}'", self.file_list[self.current_file_index].clone());
+                println!("opening file '{}'", self.files_info[self.current_file_index].path.clone());
               }
-              let current_file = File::open(self.file_list[self.current_file_index].clone());
+              let current_file = File::open(self.files_info[self.current_file_index].path.clone());
               match current_file
               {
                 Ok(file) =>
@@ -125,48 +167,244 @@ impl ReadLiner for MultiFileReader
   }
 }
 
+// trait FindKeyPosition
+// {
+//   fn find_key_pos(key: u64, path_list: Vec<String>, separator: String, key_field: usize) -> u64;
+// }
+
+
+// impl FindKeyPosition for MultiFileReader
+// {
+  /**
+   * Find the seek position of the key in multiple files.
+   *
+   * Asumptions:
+   * - The files are in order.
+   * - The content of the files is one element per line.
+   * - Each element has multiple values, separated by the "separator".
+   * - The key of an element is in the value with the position "key_field".
+   * - The key is numeric.
+   * - This function should return either the seek position of the key if it is
+   *   found, or the position of the highest value that is lower than the key
+   *   otherwise.
+   * - The last element in the last file must not be bigger than 16384 bytes
+   */
+//   fn find_key_pos(key: u64, path_list: Vec<String>, separator: String, key_field: usize) -> Option<u64>
+//   {
+//     let bottom: u64 = 0;
+//     let top: u64 = {
+//       let mut buf = vec![0; BUFFER_SIZE];
+//       let last_file = File::open(path_list.last().clone());
+//
+//       let last_line = cmp::max(0, fs::metadata(path).unwrap().len() - buf.len());
+//     };
+//     loop {
+//
+//     }
+//
+//     return None
+//   }
+// }
+
 #[cfg(test)]
 mod test {
+  use std::io::prelude::*;
+  use std::fs::File;
+  use MultiFileReader;
   use ReadLiner;
-  use std;
+
+  use tempdir::TempDir;
+
+  /**
+   * Creates a list of files with ints, one per line.
+   * Each file is separated by the '|' char, each line by the ',' char
+   */
+  pub fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
+  {
+    println!("write_files s={}", s);
+     return s.split('|').enumerate().map(
+      |x: (usize, &str)|
+      {
+        let file_path = String::from(tmp_dir.path().join(x.0.to_string()).to_str().unwrap());
+        let mut tmp_file = File::create(file_path.clone()).expect("create temp file");
+        println!("write_files x.0={}, x.1={}", x.0, x.1);
+        for fline in x.1.split(',')
+        {
+          tmp_file.write(fline.as_bytes()).unwrap();
+          tmp_file.write(b"\n").unwrap();
+        }
+        return file_path
+      }
+    ).collect()
+  }
 
   #[test]
-  fn it_works() {
-    struct LineVecStr {
-      data: Vec<String>,
-      index: usize
-    }
+  fn test_multifile_get_files_info()
+  {
+    let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
 
-    impl LineVecStr {
-      fn new(data: Vec<String>) -> LineVecStr {
-        LineVecStr {
-          data: data.clone(),
-          index: 0
-        }
-      }
-    }
+    let files_info = MultiFileReader::get_files_info(files);
+    assert_eq!(files_info[0].start, 0);
+    assert_eq!(files_info[0].end, 6);
+    assert_eq!(files_info[1].start, 6);
+    assert_eq!(files_info[1].end, 8);
+    assert_eq!(files_info[2].start, 8);
+  }
 
-    impl ReadLiner for LineVecStr {
-      fn read_line(&mut self, buf: &mut String, verbose: bool) -> std::io::Result<usize>
-      {
-        if self.index < self.data.len() {
-          buf.push_str(self.data[self.index].as_str());
-          self.index += 1;
-          Ok(buf.len())
-        } else {
-          Ok(0)
-        }
-      }
-    }
+  #[test]
+  fn test_multifile_find_file_info()
+  {
+    let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let files_info = MultiFileReader::get_files_info(files);
 
-    let mut t: LineVecStr = LineVecStr::new(vec![String::from("12"), String::from("3")]);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 0), 0);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 1), 0);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 5), 0);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 6), 1);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 7), 1);
+    assert_eq!(MultiFileReader::find_file_info(&files_info, 8), 2);
+  }
+
+  #[test]
+  fn test_multifile_read_line()
+  {
+    let data = "0,1,2|3|4,5,6|7";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let mut reader = MultiFileReader::open(files, 0);
+
     let mut s = String::new();
-    assert!(t.read_line(&mut s, false).unwrap() == 2);
-    assert!(s.as_str() == "12");
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "0\n");
 
-    let tt: &mut ReadLiner = &mut t as &mut ReadLiner;
-    let mut ss = String::new();
-    assert!((*tt).read_line(&mut ss, false).unwrap() == 1);
-    assert!(ss.as_str() == "3");
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "1\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "2\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "3\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "4\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "5\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "6\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "7\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "");
+  }
+
+  #[test]
+  fn test_multifile_read_line_openseek()
+  {
+    let data = "0,1,2|3|4,5,6|7";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let mut reader = MultiFileReader::open(files, 8);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "4\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "5\n");
+  }
+
+  #[test]
+  fn test_multifile_read_line_openseek2()
+  {
+    let data = "0,1,2|3|4,5,6|7";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let mut reader = MultiFileReader::open(files, 9);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "5\n");
+  }
+
+  #[test]
+  fn test_multifile_read_line_openseek3()
+  {
+    let data = "0,1,2|3|4,5,6|7";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let mut reader = MultiFileReader::open(files, 7);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "4\n");
+  }
+
+  #[test]
+  fn test_multifile_seek()
+  {
+    let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
+    let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
+    let files = write_files(data, &tmp_dir);
+    let mut reader = MultiFileReader::open(files, 0);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "0\n");
+
+    reader.seek(8);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "4\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "5\n");
+
+    reader.seek(9);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "5\n");
+
+    reader.seek(7);
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "\n");
+
+    let mut s = String::new();
+    reader.read_line(&mut s, false).expect("reading a line");
+    assert_eq!(s.as_str(), "4\n");
   }
 }
