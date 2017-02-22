@@ -33,7 +33,7 @@ impl ByteRangeLineReader
    */
   fn open(file_list: Vec<String>, division: u64) -> Vec<ByteRangeLineReader>
   {
-    let length = MultiFileReader::len(file_list.clone());
+    let length = MultiFileReader::len(&file_list);
     // make range a little bigger, so that the last range might be a bit overrun
     // (but of course we will control it) instead of not reading the final bytes
     let range_size: u64 = (length as f64 / division as f64).ceil() as u64;
@@ -43,7 +43,7 @@ impl ByteRangeLineReader
       {
         let mut ret = ByteRangeLineReader
         {
-          reader: MultiFileReader::open(file_list.clone(), i * range_size),
+          reader: MultiFileReader::open(&file_list, i * range_size),
           end: (i + 1) * range_size,
           current: i * range_size
         };
