@@ -15,9 +15,11 @@
 **/
 
 use std::io::Result;
+use std::cmp;
 
 use ReadLiner;
 use MultiFileReader;
+use multi_file_reader::BUFFER_SIZE;
 
 pub struct ByteRangeLineReader
 {
@@ -28,12 +30,22 @@ pub struct ByteRangeLineReader
 
 impl ByteRangeLineReader
 {
+  pub fn clone(&self) -> ByteRangeLineReader
+  {
+    return ByteRangeLineReader
+    {
+      reader: self.reader.clone(),
+      end: self.end,
+      current: self.current
+    }
+  }
+
   /**
    * Divides a file in multiple ByteRangeLineReader
    */
-  fn open(file_list: Vec<String>, division: u64) -> Vec<ByteRangeLineReader>
+  pub fn open(file_list: &Vec<String>, division: u64) -> Vec<ByteRangeLineReader>
   {
-    let length = MultiFileReader::len(&file_list);
+    let length = MultiFileReader::len(file_list);
     // make range a little bigger, so that the last range might be a bit overrun
     // (but of course we will control it) instead of not reading the final bytes
     let range_size: u64 = (length as f64 / division as f64).ceil() as u64;
@@ -43,7 +55,7 @@ impl ByteRangeLineReader
       {
         let mut ret = ByteRangeLineReader
         {
-          reader: MultiFileReader::open(&file_list, i * range_size),
+          reader: MultiFileReader::open(file_list, i * range_size),
           end: (i + 1) * range_size,
           current: i * range_size
         };
@@ -56,9 +68,83 @@ impl ByteRangeLineReader
     ).collect()
   }
 
-  fn pos(&self) -> u64
+  pub fn open_range(file_list: Vec<String>, start_pos: u64, end_pos: u64) -> ByteRangeLineReader
+  {
+    ByteRangeLineReader
+    {
+      reader: MultiFileReader::open(&file_list, start_pos),
+      end: end_pos,
+      current: start_pos
+    }
+  }
+
+  pub fn pos(&self) -> u64
   {
     self.current
+  }
+
+  pub fn end(&self) -> u64
+  {
+    self.end
+  }
+
+  /**
+   * Read the last line of th range. Note that the problem here is that the end
+   * of the range is "orientative" and not exact. The end is defined by the
+   * next line
+   */
+  pub fn last_line(&self) -> String
+  {
+    let seek_pos: u64 = cmp::max(
+      0,
+      (self.end as i64) - BUFFER_SIZE as i64
+    ) as u64;
+    let buf_size: usize = (self.end - seek_pos) as usize + cmp::min(
+      BUFFER_SIZE as i64,
+      self.reader.own_len() as i64 - self.end as i64
+     ) as usize;
+
+    let mut buf = vec![0;  buf_size];
+    let mut reader = self.reader.clone();
+    reader.seek(seek_pos);
+    reader.read(&mut buf).unwrap();
+
+    let lines: String;
+    let split: Vec<&str>;
+    let last_line: String;
+    let buf_end_pos: usize = (self.end - seek_pos + 1) as usize;
+
+    // case A: The end of the buffer is the end of the last file, so the last
+    // line is the last line in the buffer.
+    if buf_end_pos >= buf.len()
+    {
+      lines = String::from_utf8(buf).unwrap();
+      split = lines.split('\n').collect();
+      last_line = split[split.len()-2].to_string();
+    }
+    // case B: The end of the buffer is not the end of the last file, but
+    // the end of the byte range is a \n. This means that the next line
+    // after that new line char at self.end is what is considered the
+    // last line
+    else if buf[buf_end_pos] == ('\n' as u8)
+    {
+      lines = String::from_utf8(buf[buf_end_pos-1..buf.len()].to_vec()).unwrap();
+      split = lines.split('\n').collect();
+      last_line = split[0].to_string();
+    }
+    // case C: self.end is not a new line and because all lines end with a new
+    // line, it follows that self.end is not the end of the multi-file. This
+    // means that the last line starts after the first \n before self.end
+    else
+    {
+      let first_part = String::from_utf8(buf[0..(buf_end_pos - 1)].to_vec()).unwrap();
+      let start_pos = first_part.rfind('\n').unwrap();
+      lines = String::from_utf8(buf[(start_pos+1)..(buf.len())].to_vec()).unwrap();
+      split = lines.split('\n').collect();
+      last_line = split[0].to_string();
+    }
+
+    return last_line
   }
 }
 
@@ -106,6 +192,9 @@ mod test
     let mut buf = String::new();
     assert_eq!(reader.read_line(&mut buf, false).unwrap(), 0);
     assert_eq!(buf, String::new());
+
+    let expected_last_line: String = s.to_string().split(",").last().unwrap().to_string();
+    assert_eq!(expected_last_line, reader.last_line());
   }
 
   /**
@@ -138,7 +227,7 @@ mod test
     let files = write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
-    let mut readers = ByteRangeLineReader::open(files.clone(), output_split.len() as u64);
+    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64);
     assert_eq!(readers.len(), output_split.len());
 
     for (i, x) in output_split.iter().enumerate()
@@ -147,9 +236,6 @@ mod test
     }
   }
 
-  /**
-   * Testing byte range with one file, one range
-   */
   #[test]
   fn test_byte_range()
   {
@@ -177,6 +263,22 @@ mod test
       (
         "0,1|2,3,4|5",
         "0,1,2,3|4,5"
+      ),
+      (
+        "0,1,2,3,4,5,6",
+        "0,1,2,3|4,5,6"
+      ),
+      (
+        "0,1,2,3,4,5,6,7",
+        "0,1,2,3,4|5,6,7"
+      ),
+      (
+        "0,1,2,3,4,5,6,7,8",
+        "0,1,2,3,4|5,6,7,8"
+      ),
+      (
+        "0,1,2,3,4,5,6,7,8,9",
+        "0,1,2,3,4,5|6,7,8,9"
       ),
       (
         "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16",

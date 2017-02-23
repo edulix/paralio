@@ -22,9 +22,11 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::cmp;
 
-static BUFFER_SIZE: usize = 16384;
+pub static BUFFER_SIZE: usize = 16384;
 
-pub struct FileInfo {
+#[derive(Debug, Clone)]
+pub struct FileInfo
+{
   path: String,
   start: u64,
   end: u64
@@ -34,7 +36,8 @@ pub struct FileInfo {
  * Multi file reader allows to read line by line a vector of files just
  * like it was only one file
  */
-pub struct MultiFileReader {
+pub struct MultiFileReader
+{
   files_info: Vec<FileInfo>,
   current_file_buffer: BufReader<File>,
   current_file_index: usize
@@ -46,6 +49,17 @@ pub trait ReadLiner {
 
 impl MultiFileReader
 {
+  pub fn clone(&self) -> MultiFileReader
+  {
+    let f: &File = self.current_file_buffer.get_ref();
+    return MultiFileReader
+    {
+      current_file_buffer: BufReader::new(f.try_clone().unwrap()),
+      files_info: self.files_info.iter().cloned().collect(),
+      current_file_index: self.current_file_index
+    }
+  }
+
   pub fn len(file_list: &Vec<String>) -> u64
   {
     file_list.iter().fold(
@@ -86,8 +100,17 @@ impl MultiFileReader
 
   pub fn seek(&mut self, pos: u64)
   {
+    let file_index = {
+      if self.current_file_index >= self.files_info.len()
+      {
+        /*return*/ self.files_info.len() - 1
+      } else
+      {
+        /*return*/ self.current_file_index
+      }
+    };
     let (start, end) = {
-      let ref file_info = self.files_info[self.current_file_index];
+      let ref file_info = self.files_info[file_index];
       (file_info.start, file_info.end)
     };
     if pos >= start && pos <= end
@@ -123,6 +146,43 @@ impl MultiFileReader
       files_info: files_info,
       current_file_index: file_index
     }
+  }
+
+  pub fn get_file_buffer(&mut self) -> &mut BufReader<File>
+  {
+    return &mut (self.current_file_buffer)
+  }
+
+  pub fn get_own_files_info(&self) -> &Vec<FileInfo>
+  {
+    return &self.files_info
+  }
+
+  pub fn own_len(&self) -> u64
+  {
+    return self.files_info.last().unwrap().end
+  }
+
+  pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<()>
+  {
+    let mut pos: usize = 0;
+    let buf_len = buf.len();
+    while pos < buf_len
+    {
+      let len = self.current_file_buffer.read(&mut buf[pos..buf_len]).unwrap();
+      if len == 0 {
+        self.current_file_index += 1;
+        if self.current_file_index >= self.files_info.len()
+        {
+          return Ok(())
+        } else {
+          let current_file = File::open(self.files_info[self.current_file_index].path.clone()).unwrap();
+          self.current_file_buffer = BufReader::new(current_file);
+        }
+      }
+      pos += len
+    }
+    return Ok(())
   }
 }
 

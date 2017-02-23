@@ -13,25 +13,27 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
 **/
-// extern crate itertools;
 
-// use std::fs::File;
-// use std::io::BufWriter;
-// use std::io::prelude::*;
-// use itertools::Itertools;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::prelude::*;
 
-// use LineReader;
-// use MultiFileReader;
+use LineReader;
+use MultiFileReader;
+use ByteRangeLineReader;
+use multi_file_reader::FindKeyPosition;
+use multi_file_reader::get_key;
 
 pub struct OutputFile {
-//   separator: String,
-//   verbose: bool,
-//   output_file: BufWriter<File>,
-//   output_fields: Vec<(bool, usize)>,
-//   pub file1: LineReader<MultiFileReader>,
-//   pub file2: LineReader<MultiFileReader>,
+  separator: String,
+  verbose: bool,
+  output_file: BufWriter<File>,
+  output_fields: Vec<(bool, usize)>,
+  pub file1: LineReader<ByteRangeLineReader>,
+  pub file2: LineReader<ByteRangeLineReader>,
+  end_pos: u64,
 }
-/*
+
 fn _pair_split(s: &String) -> (bool, usize)
 {
   let vals: Vec<&str> = (*s).split(".").collect();
@@ -49,16 +51,41 @@ impl OutputFile {
       file1_str_list: Vec<String>,
       field1: u32,
       file2_str_list: Vec<String>,
-      field2: u32
-  ) -> OutputFile {
-    OutputFile {
+      field2: u32,
+      file1_range: ByteRangeLineReader,
+      start_pos: u64
+  ) -> OutputFile
+  {
+    let separator_char = separator.chars().next().unwrap();
+
+    let last_key: String = get_key(
+      &file1_range.last_line(), separator_char, field1 as usize
+    ).to_string();
+
+    let end_pos: u64 = MultiFileReader::find_key_pos(
+      last_key, &file1_str_list, separator_char, field1 as usize
+    ).unwrap();
+
+    return OutputFile
+    {
       separator: separator.clone(),
       verbose: verbose,
       output_file: BufWriter::new(File::create(output_file_str).unwrap()),
       output_fields: output_fields_str_list.iter().map(|s| _pair_split(s) ).collect(),
-      file1: LineReader::new(MultiFileReader::open(file1_str_list), separator.clone(), field1, verbose),
-      file2: LineReader::new(MultiFileReader::open(file2_str_list), separator.clone(), field2, verbose)
+      file1: LineReader::new(file1_range, separator.clone(), field1, verbose),
+      file2: LineReader::new(
+        ByteRangeLineReader::open_range(file2_str_list, start_pos, end_pos),
+        separator.clone(),
+        field2,
+        verbose
+      ),
+      end_pos: end_pos
     }
+  }
+
+  pub fn get_end_pos(&self) -> u64
+  {
+    return self.end_pos
   }
 
   pub fn add_match(&mut self)
@@ -136,4 +163,3 @@ impl OutputFile {
     self.file2.field(i)
   }
 }
-*/
