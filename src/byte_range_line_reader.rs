@@ -43,16 +43,25 @@ impl ByteRangeLineReader
   /**
    * Divides a file in multiple ByteRangeLineReader
    */
-  pub fn open(file_list: &Vec<String>, division: u64) -> Vec<ByteRangeLineReader>
+  pub fn open(file_list: &Vec<String>, division: u64, verbose: bool) -> Vec<ByteRangeLineReader>
   {
     let length = MultiFileReader::len(file_list);
     // make range a little bigger, so that the last range might be a bit overrun
     // (but of course we will control it) instead of not reading the final bytes
     let range_size: u64 = (length as f64 / division as f64).ceil() as u64;
 
+
     return (0..division).map(
       |i|
       {
+        if verbose {
+          println!(
+            "ByteRangeLineReader::open: it={}, current={} end={}",
+            i,
+            i * range_size,
+            (i+1) * range_size
+          );
+        }
         let mut ret = ByteRangeLineReader
         {
           reader: MultiFileReader::open(file_list, i * range_size),
@@ -68,8 +77,15 @@ impl ByteRangeLineReader
     ).collect()
   }
 
-  pub fn open_range(file_list: Vec<String>, start_pos: u64, end_pos: u64) -> ByteRangeLineReader
+  pub fn open_range(file_list: Vec<String>, start_pos: u64, end_pos: u64, verbose: bool) -> ByteRangeLineReader
   {
+    if verbose {
+      println!(
+        "ByteRangeLineReader::open_range start_pos={} end_pos={}",
+        start_pos,
+        end_pos
+      );
+    }
     ByteRangeLineReader
     {
       reader: MultiFileReader::open(&file_list, start_pos),
@@ -152,6 +168,9 @@ impl ReadLiner for ByteRangeLineReader
 {
   fn read_line(&mut self, buf: &mut String, verbose: bool) -> Result<usize>
   {
+    if verbose {
+      println!("ByteRangeLineReader::read_line {:p}", self);
+    }
     if self.current <= self.end
     {
       let ret = self.reader.read_line(buf, verbose).unwrap();
@@ -227,7 +246,7 @@ mod test
     let files = write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
-    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64);
+    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
     assert_eq!(readers.len(), output_split.len());
 
     for (i, x) in output_split.iter().enumerate()
@@ -290,4 +309,32 @@ mod test
       test_files(a, b);
     }
   }
+
+  #[test]
+  fn test_last_line()
+  {
+    let input: &str = "0,1,2,3,4,5";
+    let output: &str = "0,1,2,3,4,5";
+    let tmp_dir = TempDir::new("byterange").expect("create temp dir");
+    let files = write_files(input, &tmp_dir);
+    let output_split: Vec<&str> = output.split('|').collect();
+
+    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
+    assert_eq!(readers.len(), output_split.len());
+
+    let mut buf = String::new();
+    readers[0].read_line(&mut buf, false).unwrap();
+    assert_eq!(buf, String::from("0\n"));
+
+    let mut buf = String::new();
+    readers[0].read_line(&mut buf, false).unwrap();
+    assert_eq!(buf, String::from("1\n"));
+
+    assert_eq!(readers[0].last_line(), String::from("5"));
+
+    let mut buf = String::new();
+    readers[0].read_line(&mut buf, false).unwrap();
+    assert_eq!(buf, String::from("2\n"));
+  }
+
 }

@@ -63,7 +63,7 @@ fn main()
 
   let njobs: i32 = matches.value_of("jobs").unwrap().parse().unwrap();
 
-  let a_ranges = ByteRangeLineReader::open(&file1_str_list, njobs as u64);
+  let a_ranges = ByteRangeLineReader::open(&file1_str_list, njobs as u64, verbose);
 
   let mut children = vec![];
 
@@ -93,6 +93,9 @@ fn main()
     children.push( thread::spawn(move ||
     {
       let path = String::from(Path::new(&output_path).join(thread_num.to_string()).to_str().unwrap());
+      if verbose {
+        println!("thread {}: output path: {}", thread_num, path);
+      }
 
       let mut out = OutputFile::new(
         separator,

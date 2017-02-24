@@ -53,7 +53,7 @@ impl<T: ReadLiner> LineReader<T>
     line1.pop();
     self.last_parsed_line = line1.split(self.separator.as_str()).map(String::from).collect();
     if self.verbose {
-      println!("read this line: {}", line1);
+      println!("LineReader::read_next, line_read={}", line1);
     }
   }
 

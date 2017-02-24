@@ -40,7 +40,8 @@ pub struct MultiFileReader
 {
   files_info: Vec<FileInfo>,
   current_file_buffer: BufReader<File>,
-  current_file_index: usize
+  current_file_index: usize,
+  current_file_pos: u64
 }
 
 pub trait ReadLiner {
@@ -51,12 +52,14 @@ impl MultiFileReader
 {
   pub fn clone(&self) -> MultiFileReader
   {
-    let f: &File = self.current_file_buffer.get_ref();
+    let mut f: File = File::open(self.files_info[self.current_file_index].path.clone()).unwrap();
+    f.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
     return MultiFileReader
     {
-      current_file_buffer: BufReader::new(f.try_clone().unwrap()),
+      current_file_buffer: BufReader::new(f),
       files_info: self.files_info.iter().cloned().collect(),
-      current_file_index: self.current_file_index
+      current_file_index: self.current_file_index,
+      current_file_pos: self.current_file_pos
     }
   }
 
@@ -115,7 +118,8 @@ impl MultiFileReader
     };
     if pos >= start && pos <= end
     {
-      self.current_file_buffer.seek(SeekFrom::Start(pos - start)).unwrap();
+      self.current_file_pos = pos - start;
+      self.current_file_buffer.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
     }
     else
     {
@@ -123,7 +127,8 @@ impl MultiFileReader
       let file = {
         let ref file_info = self.files_info[self.current_file_index];
         let mut file = File::open(file_info.path.clone()).unwrap();
-        file.seek(SeekFrom::Start(pos - file_info.start)).unwrap();
+        self.current_file_pos = pos - file_info.start;
+        file.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
         file
       };
       self.current_file_buffer = BufReader::new(file);
@@ -134,17 +139,20 @@ impl MultiFileReader
   {
     let files_info: Vec<FileInfo> = MultiFileReader::get_files_info(path_list);
     let file_index = MultiFileReader::find_file_info(&files_info, pos);
+    let current_file_pos: u64;
     let file = {
       let ref file_info = files_info[file_index];
       let mut file = File::open(file_info.path.clone()).unwrap();
-      file.seek(SeekFrom::Start(pos - file_info.start)).unwrap();
+      current_file_pos = pos - file_info.start;
+      file.seek(SeekFrom::Start(current_file_pos)).unwrap();
       file
     };
     return MultiFileReader
     {
       current_file_buffer: BufReader::new(file),
       files_info: files_info,
-      current_file_index: file_index
+      current_file_index: file_index,
+      current_file_pos: current_file_pos
     }
   }
 
@@ -170,6 +178,7 @@ impl MultiFileReader
     while pos < buf_len
     {
       let len = self.current_file_buffer.read(&mut buf[pos..buf_len]).unwrap();
+      self.current_file_pos += len as u64;
       if len == 0 {
         self.current_file_index += 1;
         if self.current_file_index >= self.files_info.len()
@@ -178,6 +187,7 @@ impl MultiFileReader
         } else {
           let current_file = File::open(self.files_info[self.current_file_index].path.clone()).unwrap();
           self.current_file_buffer = BufReader::new(current_file);
+          self.current_file_pos = 0;
         }
       }
       pos += len
@@ -194,11 +204,16 @@ impl ReadLiner for MultiFileReader
     {
       Ok(bytes) =>
       {
+
+        self.current_file_pos += bytes as u64;
         match bytes
         {
           bytes if bytes > 0 => Ok(bytes),
-          _ =>
+          bytes =>
           {
+            if verbose {
+              println!("MultiFileReader::read_line: {:p} read empty line({} bytes): '{}'", self, bytes, buf);
+            }
             self.current_file_index += 1;
             if self.current_file_index >= self.files_info.len()
             {
@@ -206,7 +221,7 @@ impl ReadLiner for MultiFileReader
             } else
             {
               if verbose {
-                println!("opening file '{}'", self.files_info[self.current_file_index].path.clone());
+                println!("MultiFileReader::read_line: opening file '{}'", self.files_info[self.current_file_index].path.clone());
               }
               let current_file = File::open(self.files_info[self.current_file_index].path.clone());
               match current_file
@@ -214,6 +229,7 @@ impl ReadLiner for MultiFileReader
                 Ok(file) =>
                 {
                   self.current_file_buffer = BufReader::new(file);
+                  self.current_file_pos = 0;
                   self.read_line(buf, verbose)
                 },
                 Err(why) => Err(why),

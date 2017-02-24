@@ -61,6 +61,14 @@ impl OutputFile {
     let last_key: String = get_key(
       &file1_range.last_line(), separator_char, field1 as usize
     ).to_string();
+    if verbose {
+      println!(
+        "OutputFile::new: out={} start_pos={} last_key={}",
+        output_file_str,
+        start_pos,
+        last_key
+      );
+    }
 
     let end_pos: u64 = MultiFileReader::find_key_pos(
       last_key, &file1_str_list, separator_char, field1 as usize
@@ -74,7 +82,7 @@ impl OutputFile {
       output_fields: output_fields_str_list.iter().map(|s| _pair_split(s) ).collect(),
       file1: LineReader::new(file1_range, separator.clone(), field1, verbose),
       file2: LineReader::new(
-        ByteRangeLineReader::open_range(file2_str_list, start_pos, end_pos),
+        ByteRangeLineReader::open_range(file2_str_list, start_pos, end_pos, verbose),
         separator.clone(),
         field2,
         verbose
@@ -91,7 +99,7 @@ impl OutputFile {
   pub fn add_match(&mut self)
   {
     if self.verbose {
-      println!("adding a match for key {}", self.file1_key());
+      println!("OutputFile::add_match file1_key={}", self.file1_key());
     }
     let line: Vec<String> = self.output_fields.iter()
       .map(
@@ -114,7 +122,7 @@ impl OutputFile {
   pub fn file1_has_current(&self) -> bool
   {
     if self.verbose {
-      println!("file1_has_current() = {}", self.file1.has_current());
+      println!("OutputFile::file1_has_current() = {}", self.file1.has_current());
     }
     self.file1.has_current()
   }
@@ -122,7 +130,7 @@ impl OutputFile {
   pub fn file2_has_current(&self) -> bool
   {
     if self.verbose {
-      println!("file2_has_current() = {}", self.file2.has_current());
+      println!("OutputFile::file2_has_current() = {}", self.file2.has_current());
     }
     self.file2.has_current()
   }
@@ -130,7 +138,7 @@ impl OutputFile {
   pub fn file1_read_next(&mut self)
   {
     if self.verbose {
-      println!("file1_read_next()");
+      println!("OutputFile::file1_read_next()");
     }
     self.file1.read_next()
   }
@@ -138,7 +146,7 @@ impl OutputFile {
   pub fn file2_read_next(&mut self)
   {
     if self.verbose {
-      println!("file2_read_next()");
+      println!("OutputFile::file2_read_next()");
     }
     self.file2.read_next()
   }
