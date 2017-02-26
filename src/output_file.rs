@@ -48,7 +48,6 @@ impl OutputFile {
       verbose: bool,
       output_file_str: String,
       output_fields_str_list: Vec<String>,
-      file1_str_list: Vec<String>,
       field1: u32,
       file2_str_list: Vec<String>,
       field2: u32,
@@ -71,8 +70,15 @@ impl OutputFile {
     }
 
     let end_pos: u64 = MultiFileReader::find_key_pos(
-      last_key, &file1_str_list, separator_char, field1 as usize
+      last_key, &file2_str_list, separator_char, field2 as usize
     ).unwrap();
+
+    if verbose {
+      println!(
+        "OutputFile::new: calculated_end_pos={}",
+        end_pos,
+      );
+    }
 
     return OutputFile
     {
@@ -107,11 +113,19 @@ impl OutputFile {
         {
           if file_num
           {
-            self.file1.field(field_num)
+            let v = self.file1.field(field_num);
+            if self.verbose {
+              println!("OutputFile::add_match file_num={} [1], field_num={}, v={}", file_num, field_num, v);
+            }
+            return v
           }
           else
           {
-            self.file2.field(field_num)
+            let v = self.file2.field(field_num);
+            if self.verbose {
+              println!("OutputFile::add_match file_num={} [2], field_num={}, v={}", file_num, field_num, v);
+            }
+            return v
           }
         }
       ).collect();
@@ -170,4 +184,18 @@ impl OutputFile {
   {
     self.file2.field(i)
   }
+}
+
+#[cfg(test)]
+mod test
+{
+  use std::io::prelude::*;
+  use std::fs::File;
+
+  use tempdir::TempDir;
+
+  use ByteRangeLineReader;
+  use ReadLiner;
+
+
 }

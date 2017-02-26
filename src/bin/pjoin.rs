@@ -79,7 +79,6 @@ fn main()
     let separator = separator.clone();
     let output_path = output_path.clone();
     let output_fields_str_list = output_fields_str_list.clone();
-    let file1_str_list = file1_str_list.clone();
     let field1 = field1.clone();
     let file2_str_list = file2_str_list.clone();
     let field2 = field2.clone();
@@ -102,7 +101,6 @@ fn main()
         verbose,
         path,
         output_fields_str_list,
-        file1_str_list,
         field1,
         file2_str_list,
         field2,

@@ -117,7 +117,10 @@ impl ByteRangeLineReader
     ) as u64;
     let buf_size: usize = (self.end - seek_pos) as usize + cmp::min(
       BUFFER_SIZE as i64,
-      self.reader.own_len() as i64 - self.end as i64
+      cmp::max(
+        0,
+        self.reader.own_len() as i64 - self.end as i64
+      )
      ) as usize;
 
     let mut buf = vec![0;  buf_size];
