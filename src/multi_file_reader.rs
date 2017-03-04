@@ -1,9 +1,9 @@
 /**
  * Copyright (C) 2017 Eduardo Robles Elvira <edulix@nvotes.com>
 
- * parallel_pg_select_dump is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License.
+ * parallel_pg_select_dump is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the License.
 
  * parallel_pg_select_dump  is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -11,7 +11,8 @@
  * GNU Affero General Public License for more details.
 
  * You should have received a copy of the GNU Affero General Public License
- * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
+ * along with parallel_pg_select_dump.  If not, see
+ * <http://www.gnu.org/licenses/>.
 **/
 
 use std;
@@ -22,8 +23,24 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::cmp;
 
+/// Default buffer size to which lines are read from files.
 pub static BUFFER_SIZE: usize = 16384;
 
+// A FileInfo is used to indicate the position at which a file with a given
+// path starts and ends, with `start` and `end` being multi-file references of
+// positions in a MultiFileReader (or a vector of files).
+//
+// For example, if you have a vector of 2 files:
+// - file1, length = 1024 bytes
+// - file2, length = 2048 bytes
+//
+// For that vector of files, the FileInfos could be something like:
+// FileInfo { path: "/tmp/file1", start: 0, end: 1024 }
+// FileInfo { path: "/tmp/file2", start: 1024, end: 3092 }
+//
+// FileInfo's are useful for example to be able to seek to a specific
+// multi-file position in a MultiFileReader without having to scann through
+// the files.
 #[derive(Debug, Clone)]
 pub struct FileInfo
 {
@@ -32,10 +49,12 @@ pub struct FileInfo
   end: u64
 }
 
-/*
- * Multi file reader allows to read line by line a vector of files just
- * like it was only one file
- */
+/// Multi file reader allows to read line by line a vector of files just
+/// like it was only one file.
+///
+/// File positions managed in the context of a MultiFileReader are always
+/// "multi-file positions", as if all the files were only one, unless specified
+/// otherwise.
 pub struct MultiFileReader
 {
   files_info: Vec<FileInfo>,
@@ -44,15 +63,23 @@ pub struct MultiFileReader
   current_file_pos: u64
 }
 
-pub trait ReadLiner {
-  fn read_line(&mut self, buf: &mut String, verbose: bool) -> std::io::Result<usize>;
+/// Trait to read a line to a string, allowing verbose debug output
+pub trait ReadLiner
+{
+  fn read_line(&mut self, buf: &mut String, verbose: bool)
+    -> std::io::Result<usize>;
 }
 
 impl MultiFileReader
 {
+  /// Clones a MultiFileReader, replicating the same state as `self`, and thus
+  /// reopening the current file and seeking to the current seek position, and
+  /// of course also cloning the other fields in the struct.
   pub fn clone(&self) -> MultiFileReader
   {
-    let mut f: File = File::open(self.files_info[self.current_file_index].path.clone()).unwrap();
+    let mut f: File = File::open(
+      self.files_info[self.current_file_index].path.clone()
+    ).unwrap();
     f.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
     return MultiFileReader
     {
@@ -63,6 +90,7 @@ impl MultiFileReader
     }
   }
 
+  /// Returns the sum of the lengths of all the files in the reader
   pub fn len(file_list: &Vec<String>) -> u64
   {
     file_list.iter().fold(
@@ -71,8 +99,10 @@ impl MultiFileReader
     )
   }
 
+  /// Returns the vector of file infos for a given vector of file paths.
   pub fn get_files_info(path_list: &Vec<String>) -> Vec<FileInfo>
   {
+    // TODO: maybe convert this in a fold
     let mut ret: Vec<FileInfo> = Vec::with_capacity(path_list.len());
     let mut last_end: u64 = 0;
     for path in path_list.iter()
@@ -91,6 +121,10 @@ impl MultiFileReader
     return ret
   }
 
+  /// Returns the index of the FileInfo from which to read if the caller wants
+  /// to read from the multi-file position `pos`.
+  ///
+  /// If the position is not found then the highest index is returned.
   pub fn find_file_info(files_info: &Vec<FileInfo>, pos: u64) -> usize
   {
     return match files_info.iter().enumerate().find(
@@ -101,8 +135,17 @@ impl MultiFileReader
     }
   }
 
+  /// Seeks to multi-file position.
+  ///
+  /// Seeking might involve closing the currently opened file and opening
+  /// another one if the multi-file seek position lies in another file.
   pub fn seek(&mut self, pos: u64)
   {
+    // get a valid file_index inside a self.files_info. Usually it's just
+    // self.current_file_index, but we use last self.file_info if
+    // self.current_file_index is higher or equal to the num of files info.
+    //
+    // When can that happen? only when we finished to read the files
     let file_index = {
       if self.current_file_index >= self.files_info.len()
       {
@@ -112,18 +155,28 @@ impl MultiFileReader
         /*return*/ self.current_file_index
       }
     };
+
+    // get the start and end multi-file positions of the file_index
     let (start, end) = {
       let ref file_info = self.files_info[file_index];
       (file_info.start, file_info.end)
     };
+
+    // if the current file contains the position to seek, then we just do the
+    // seek
     if pos >= start && pos <= end
     {
       self.current_file_pos = pos - start;
-      self.current_file_buffer.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
+      self.current_file_buffer.seek(
+        SeekFrom::Start(self.current_file_pos)
+      ).unwrap();
     }
+    // else, we open the appropiate file and seek it
     else
     {
-      self.current_file_index = MultiFileReader::find_file_info(&(self.files_info), pos);
+      self.current_file_index = MultiFileReader::find_file_info(
+        &(self.files_info), pos
+      );
       let file = {
         let ref file_info = self.files_info[self.current_file_index];
         let mut file = File::open(file_info.path.clone()).unwrap();
@@ -135,6 +188,8 @@ impl MultiFileReader
     }
   }
 
+  /// Returns a MultiFileReader for a list of paths. The returned
+  /// MultiFileReader will be at the requested multi-file seek position.
   pub fn open(path_list: &Vec<String>, pos: u64) -> MultiFileReader
   {
     let files_info: Vec<FileInfo> = MultiFileReader::get_files_info(path_list);
@@ -156,21 +211,30 @@ impl MultiFileReader
     }
   }
 
+  /// Returns the internal mutable reference to the current file buffer
   pub fn get_file_buffer(&mut self) -> &mut BufReader<File>
   {
     return &mut (self.current_file_buffer)
   }
 
+  /// Returns the internal reference to the files info
   pub fn get_own_files_info(&self) -> &Vec<FileInfo>
   {
     return &self.files_info
   }
 
+  /// Returns the size of the MultiFileReader
   pub fn own_len(&self) -> u64
   {
     return self.files_info.last().unwrap().end
   }
 
+  /// Tries to read sequentially to the supplied buffer from the
+  /// MultiFileReader starting from the current seek position all the bytes to
+  /// fill the buffer.
+  ///
+  /// This might read from multiple files, but that would be transparent to the
+  /// caller, as if reading from only one file.
   pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<()>
   {
     let mut pos: usize = 0;
@@ -185,7 +249,9 @@ impl MultiFileReader
         {
           return Ok(())
         } else {
-          let current_file = File::open(self.files_info[self.current_file_index].path.clone()).unwrap();
+          let current_file = File::open(
+            self.files_info[self.current_file_index].path.clone()
+          ).unwrap();
           self.current_file_buffer = BufReader::new(current_file);
           self.current_file_pos = 0;
         }
@@ -198,13 +264,18 @@ impl MultiFileReader
 
 impl ReadLiner for MultiFileReader
 {
-  fn read_line(&mut self, buf: &mut String, verbose: bool) -> std::io::Result<usize>
+  /// Reads one line to the provided `buf` buffer, returning the size in bytes
+  /// of the line read or zero if reached the end of the multi-file reader.
+  ///
+  /// If the current opened file has no more lines, then it tries to read the
+  /// line from the next file recursively.
+  fn read_line(&mut self, buf: &mut String, verbose: bool)
+    -> std::io::Result<usize>
   {
     match self.current_file_buffer.read_line(buf)
     {
       Ok(bytes) =>
       {
-
         self.current_file_pos += bytes as u64;
         match bytes
         {
@@ -212,7 +283,10 @@ impl ReadLiner for MultiFileReader
           bytes =>
           {
             if verbose {
-              println!("MultiFileReader::read_line: {:p} read empty line({} bytes): '{}'", self, bytes, buf);
+              println!(
+                "MultiFileReader::read_line: {:p} read empty line({} bytes): '{}'",
+                self, bytes, buf
+              );
             }
             self.current_file_index += 1;
             if self.current_file_index >= self.files_info.len()
@@ -223,7 +297,9 @@ impl ReadLiner for MultiFileReader
               if verbose {
                 println!("MultiFileReader::read_line: opening file '{}'", self.files_info[self.current_file_index].path.clone());
               }
-              let current_file = File::open(self.files_info[self.current_file_index].path.clone());
+              let current_file = File::open(
+                self.files_info[self.current_file_index].path.clone()
+              );
               match current_file
               {
                 Ok(file) =>
@@ -243,11 +319,32 @@ impl ReadLiner for MultiFileReader
   }
 }
 
+/// Trait that any struct should implement to be able to find in which
+/// multi-file position of a MultiFileReader a specific line is located, given
+/// that the multiple files are sorted
+///
+/// TODO: Make this more general, be able to assume the path_list is part of the
+/// underlying struct.
 pub trait FindKeyPosition
 {
-  fn find_key_pos(key: String, path_list: &Vec<String>, separator: char, key_field: usize) -> Option<u64>;
+  /// Given a list of path to files that should contain lines with potentially
+  /// multiple values per line separated by the given separator and whose lines
+  /// are sorted by the value that is always at the given key_field position
+  /// of the line, this function returns the position of the line which
+  /// contains the given key value.
+  fn find_key_pos(
+    key: String,
+    path_list: &Vec<String>,
+    separator: char,
+    key_field: usize
+  ) -> Option<u64>;
 }
 
+/// Returns the last line of the file at the supplied file and the size in
+/// bytes of the file.
+///
+/// Note: It only works if the last line of the file is shorter than
+/// `BUFFER_SIZE` in bytes.
 pub fn read_file_last_line(path: &String) -> (u64, String)
 {
   let file = File::open(path.as_str()).unwrap();
@@ -271,6 +368,8 @@ pub fn read_file_last_line(path: &String) -> (u64, String)
   return (file_size, last_line)
 }
 
+/// Given a line of text, splits it and gets the value at the given
+/// `key_field` index.
 pub fn get_key(line: &String, separator: char, key_field: usize) -> &str
 {
   let values: Vec<&str> = line.split(separator).collect();
@@ -279,24 +378,26 @@ pub fn get_key(line: &String, separator: char, key_field: usize) -> &str
 
 impl FindKeyPosition for MultiFileReader
 {
-
-  /**
-   * Find the seek position of the key in multiple files.
-   *
-   * Asumptions:
-   * - The files are in order.
-   * - The content of the files is one element per line.
-   * - Each element has multiple values, separated by the "separator".
-   * - The key of an element is in the value with the position "key_field".
-   * - The key is a positive integer (0 or more).
-   * - This function should return either the seek position of the key if it is
-   *   found, or the position of the highest value that is lower than the key
-   *   otherwise.
-   * - The last element in the last file must not be bigger than BUFFER_SIZE
-   *   bytes
-   * - files are new-line terminated and contain at least one line
-   */
-  fn find_key_pos(key: String, path_list: &Vec<String>, separator: char, key_field: usize) -> Option<u64>
+  /// Find the seek position of the key in multiple files.
+  ///
+  /// Asumptions:
+  /// - The files are in order.
+  /// - The content of the files is one element per line.
+  /// - Each element has multiple values, separated by the "separator".
+  /// - The key of an element is in the value with the position "key_field".
+  /// - The key is a positive integer (0 or more).
+  /// - This function should return either the seek position of the key if it is
+  ///   found, or the position of the highest value that is lower than the key
+  ///   otherwise.
+  /// - The last element in the last file must not be bigger than BUFFER_SIZE
+  ///   bytes
+  /// - files are new-line terminated and contain at least one line
+  fn find_key_pos(
+      key: String,
+      path_list: &Vec<String>,
+      separator: char,
+      key_field: usize
+  ) -> Option<u64>
   {
     // contains:
     // - a key (integer)

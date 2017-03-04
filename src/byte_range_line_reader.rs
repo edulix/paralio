@@ -21,6 +21,9 @@ use ReadLiner;
 use MultiFileReader;
 use multi_file_reader::BUFFER_SIZE;
 
+/// ByteRangeLineReader allows to read sequencially only a slice of a
+/// MultiFileReader, from the current position to a specified multi-file end
+/// position.
 pub struct ByteRangeLineReader
 {
   reader: MultiFileReader,
@@ -30,6 +33,7 @@ pub struct ByteRangeLineReader
 
 impl ByteRangeLineReader
 {
+  /// Returns a deep clone a ByteRangeLineReader
   pub fn clone(&self) -> ByteRangeLineReader
   {
     return ByteRangeLineReader
@@ -40,18 +44,17 @@ impl ByteRangeLineReader
     }
   }
 
-  /**
-   * Divides a file in multiple ByteRangeLineReader
-   */
-  pub fn open(file_list: &Vec<String>, division: u64, verbose: bool) -> Vec<ByteRangeLineReader>
+  /// Divides a file in multiple ByteRangeLineReaders, trying to divide the
+  /// readers with roughly the same number of bytes and dividing whole lines.
+  pub fn open(file_list: &Vec<String>, num_readers: u64, verbose: bool)
+    -> Vec<ByteRangeLineReader>
   {
     let length = MultiFileReader::len(file_list);
     // make range a little bigger, so that the last range might be a bit overrun
     // (but of course we will control it) instead of not reading the final bytes
-    let range_size: u64 = (length as f64 / division as f64).ceil() as u64;
+    let range_size: u64 = (length as f64 / num_readers as f64).ceil() as u64;
 
-
-    return (0..division).map(
+    return (0..num_readers).map(
       |i|
       {
         if verbose {
@@ -77,7 +80,14 @@ impl ByteRangeLineReader
     ).collect()
   }
 
-  pub fn open_range(file_list: Vec<String>, start_pos: u64, end_pos: u64, verbose: bool) -> ByteRangeLineReader
+  /// Creates a ByteRangeLineReader that reads a list of files from some
+  /// specific multi-file start & end positions.
+  pub fn open_range(
+    file_list: Vec<String>,
+    start_pos: u64,
+    end_pos: u64,
+    verbose: bool
+  ) -> ByteRangeLineReader
   {
     if verbose {
       println!(
@@ -94,21 +104,21 @@ impl ByteRangeLineReader
     }
   }
 
+  /// Returns the multi-file current position
   pub fn pos(&self) -> u64
   {
     self.current
   }
 
+  /// Returns the multi-file end position
   pub fn end(&self) -> u64
   {
     self.end
   }
 
-  /**
-   * Read the last line of th range. Note that the problem here is that the end
-   * of the range is "orientative" and not exact. The end is defined by the
-   * next line
-   */
+  /// Read the last line of th range. Note that the problem here is that the end
+  /// of the range is "orientative" and not exact. The end is defined by the
+  /// next line
   pub fn last_line(&self) -> String
   {
     let seek_pos: u64 = cmp::max(
@@ -169,6 +179,7 @@ impl ByteRangeLineReader
 
 impl ReadLiner for ByteRangeLineReader
 {
+  /// Reads one line from the ByteRangeLineReader
   fn read_line(&mut self, buf: &mut String, verbose: bool) -> Result<usize>
   {
     if verbose {
@@ -197,11 +208,9 @@ mod test
   use ByteRangeLineReader;
   use ReadLiner;
 
-  /**
-   * Compares the output of a reader with some example string.
-   * For example if the string is "0,1,2" it means that the reader will
-   * read three lines: "0\n", "1\n" and "2\n" and no more.
-   */
+  // Compares the output of a reader with some example string.
+  // For example if the string is "0,1,2" it means that the reader will
+  // read three lines: "0\n", "1\n" and "2\n" and no more.
   fn assert_eq(reader: &mut ByteRangeLineReader, s: &str)
   {
     println!("assert_eq s={}", s);
@@ -219,10 +228,8 @@ mod test
     assert_eq!(expected_last_line, reader.last_line());
   }
 
-  /**
-   * Creates a list of files with ints, one per line.
-   * Each file is separated by the '|' char, each line by the ',' char
-   */
+  // Creates a list of files with ints, one per line.
+  // Each file is separated by the '|' char, each line by the ',' char
   fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
   {
     println!("write_files s={}", s);

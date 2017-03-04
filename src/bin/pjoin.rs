@@ -82,6 +82,7 @@ fn main()
     let field1 = field1.clone();
     let file2_str_list = file2_str_list.clone();
     let field2 = field2.clone();
+    let start = start.clone();
 
     ends.push(mpsc::channel());
 
@@ -111,6 +112,10 @@ fn main()
       out.file1_read_next();
       out.file2_read_next();
 
+      if thread_num as i32 == njobs -1 {
+        println!("thread={} elapsed={}s {}ns", thread_num, start.elapsed().as_secs(), start.elapsed().subsec_nanos());
+      }
+
       while out.file1_has_current() && out.file2_has_current()
       {
         let key1 = out.file1_key();
@@ -132,8 +137,11 @@ fn main()
           (Some(ref key1), Some(ref key2)) if key1 > key2 => {
             out.file2_read_next();
           },
-          _=> break,
+          _=> { break },
         }
+      }
+      if thread_num as i32 == njobs -1 {
+        println!("thread={} END elapsed={}s {}ns", thread_num, start.elapsed().as_secs(), start.elapsed().subsec_nanos());
       }
     }));
   }
