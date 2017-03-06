@@ -16,6 +16,8 @@
 
 use ReadLiner;
 
+/// Helps to iterative line parsing by reading and storing lines for a given
+/// ReadLiner object.
 pub struct LineReader<T>
 {
   reader: T,
@@ -28,6 +30,7 @@ pub struct LineReader<T>
 
 impl<T: ReadLiner> LineReader<T>
 {
+  /// Creates a LineReader
   pub fn new(reader: T, separator: String, key_field: u32, verbose: bool) -> LineReader<T>
   {
     LineReader
@@ -41,11 +44,13 @@ impl<T: ReadLiner> LineReader<T>
     }
   }
 
+  /// returns if it's possible to continue to read lines or not
   pub fn has_current(&self) -> bool
   {
     !self.finished
   }
 
+  /// reads the next line, storing it internally
   pub fn read_next(&mut self)
   {
     let mut line1 = String::new();
@@ -57,18 +62,57 @@ impl<T: ReadLiner> LineReader<T>
     }
   }
 
+  /// returns the index of the key field value
   pub fn key_field(&self) -> usize
   {
     self.key_field
   }
 
+  /// returns the key field value
   pub fn key(&self) -> String
   {
     self.last_parsed_line[self.key_field].clone()
   }
 
+  /// returns the value by index of the last line
   pub fn field(&self, i: usize) -> String
   {
     self.last_parsed_line[i].clone()
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use std;
+  use std::slice::Iter;
+  use ReadLiner;
+  use LineReader;
+
+  impl<'a> ReadLiner for Iter<'a, String>
+  {
+    fn read_line<'b>(&mut self, buf: &'b mut String, _: bool)
+      -> std::io::Result<usize>
+    {
+      match self.next()
+      {
+        Some(val) =>
+        {
+          buf.clone_from(val);
+          Ok(buf.len())
+        },
+        _ => Ok(0)
+      }
+    }
+  }
+
+  #[test]
+  fn test_read_lines()
+  {
+    let values = vec![
+      String::from("a,b"),
+      String::from("c,d"),
+    ];
+    let reader = LineReader::new(values.iter(), String::from(","), 0, false);
+    assert_eq!(reader.has_current(), true);
   }
 }
