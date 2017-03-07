@@ -77,6 +77,8 @@ impl MultiFileReader
   /// of course also cloning the other fields in the struct.
   pub fn clone(&self) -> MultiFileReader
   {
+    // at the end of the file self.current_file_index is too big, so check for
+    // that
     let file_index = {
       if self.current_file_index >= self.files_info.len()
       {

@@ -109,10 +109,30 @@ mod test {
   fn test_read_lines()
   {
     let values = vec![
-      String::from("a,b"),
-      String::from("c,d"),
+      String::from("a,b\n"),
+      String::from("c,d\n"),
     ];
-    let reader = LineReader::new(values.iter(), String::from(","), 0, false);
+    let mut reader = LineReader::new(values.iter(), String::from(","), 0, false);
     assert_eq!(reader.has_current(), true);
+    reader.read_next();
+    assert_eq!(reader.has_current(), true);
+
+    assert_eq!(reader.key(), String::from("a"));
+    assert_eq!(reader.field(0), String::from("a"));
+    assert_eq!(reader.has_current(), true);
+    assert_eq!(reader.field(0), String::from("a"));
+    assert_eq!(reader.field(1), String::from("b"));
+
+    reader.read_next();
+    assert_eq!(reader.has_current(), true);
+    assert_eq!(reader.key_field(), 0);
+    assert_eq!(reader.field(0), String::from("c"));
+    assert_eq!(reader.key(), String::from("c"));
+    assert_eq!(reader.field(1), String::from("d"));
+
+    reader.read_next();
+    assert_eq!(reader.has_current(), false);
+    assert_eq!(reader.field(0), String::from(""));
+    assert_eq!(reader.key(), String::from(""));
   }
 }
