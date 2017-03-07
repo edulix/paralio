@@ -3,6 +3,9 @@ rust:
   - stable
   - beta
   - nightly
+env:
+  global:
+    RUST_BACKTRACE=1
 matrix:
   allow_failures:
     - rust: nightly
