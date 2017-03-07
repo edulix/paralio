@@ -77,8 +77,18 @@ impl MultiFileReader
   /// of course also cloning the other fields in the struct.
   pub fn clone(&self) -> MultiFileReader
   {
+    let file_index = {
+      if self.current_file_index >= self.files_info.len()
+      {
+        self.files_info.len() - 1
+      }
+      else
+      {
+        self.current_file_index
+      }
+    };
     let mut f: File = File::open(
-      self.files_info[self.current_file_index].path.clone()
+      self.files_info[file_index].path.clone()
     ).unwrap();
     f.seek(SeekFrom::Start(self.current_file_pos)).unwrap();
     return MultiFileReader
