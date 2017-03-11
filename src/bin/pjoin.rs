@@ -108,7 +108,7 @@ fn main()
         a_range,
         start_pos
       );
-      next_tx.send(out.get_end_pos()).unwrap();
+      next_tx.send(out.file2_end()).unwrap();
       out.file1_read_next();
       out.file2_read_next();
 

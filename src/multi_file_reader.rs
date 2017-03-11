@@ -467,17 +467,28 @@ impl FindKeyPosition for MultiFileReader
     {
       return Some(top.pos)
     }
+    // CASE C
+    else if bottom.pos + bottom.len == top.pos
+    {
+      if top.key > key
+      {
+        return Some(bottom.pos)
+      }
+      else {
+        return Some(top.pos)
+      }
+    }
 
     loop
     {
-      // CASE C: if we didn't found the key but top and bottom are next to each other,
+      // CASE D: if we didn't found the key but top and bottom are next to each other,
       // return the bottom, because it is the highest number that is equal or
       // lower than the key
       if bottom.pos + bottom.len == top.pos
       {
         return Some(bottom.pos)
       }
-      // CASE D: we didn't find the key and still have space to find it, so find an
+      // CASE E: we didn't find the key and still have space to find it, so find an
       // element in the middle of that space and iterate
       else
       {
@@ -496,7 +507,7 @@ impl FindKeyPosition for MultiFileReader
           cut_pos += discard_line.len() as u64;
         }
 
-        // CASE D.1: if we are ending up in the top position, it means that the
+        // CASE E.1: if we are ending up in the top position, it means that the
         // middle is too close to the top, so we should just use as a cut_pos
         // a line closer to bottom. The easiest way to do it is to use the line
         // next to the bottom line, so that's what we do here.
@@ -515,19 +526,19 @@ impl FindKeyPosition for MultiFileReader
         cut_line.pop(); // remove \n
         let cut_line_key: String = get_key(&cut_line, separator, key_field).to_string();
 
-        // Case D.2
+        // Case E.2
         if cut_line_key == key
         {
           return Some(cut_pos);
         }
-        // Case D.3
+        // Case E.3
         else if cut_line_key > key
         {
           top.pos = cut_pos;
           top.key = cut_line_key.clone();
           top.len = cut_line.len() as u64 + 1;
         }
-        // Case D.4
+        // Case E.4
         else if cut_line_key < key
         {
           bottom.pos = cut_pos;

@@ -79,6 +79,12 @@ impl<T: ReadLiner> LineReader<T>
   {
     self.last_parsed_line[i].clone()
   }
+
+  /// Acces to the internal reader as a reference
+  pub fn reader(&self) -> &T
+  {
+    &self.reader
+  }
 }
 
 #[cfg(test)]
@@ -131,6 +137,7 @@ mod test {
     assert_eq!(reader.field(1), String::from("d"));
 
     reader.read_next();
+    reader.reader();
     assert_eq!(reader.has_current(), false);
     assert_eq!(reader.field(0), String::from(""));
     assert_eq!(reader.key(), String::from(""));

@@ -183,7 +183,7 @@ impl ReadLiner for ByteRangeLineReader
   fn read_line(&mut self, buf: &mut String, verbose: bool) -> Result<usize>
   {
     if verbose {
-      println!("ByteRangeLineReader::read_line {:p}", self);
+      println!("ByteRangeLineReader::read_line {:p} ", self);
     }
     if self.current <= self.end
     {
@@ -346,5 +346,4 @@ mod test
     readers[0].read_line(&mut buf, false).unwrap();
     assert_eq!(buf, String::from("2\n"));
   }
-
 }

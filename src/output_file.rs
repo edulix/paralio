@@ -24,25 +24,55 @@ use ByteRangeLineReader;
 use multi_file_reader::FindKeyPosition;
 use multi_file_reader::get_key;
 
+/// Struct used to read sequentially from two ByteRangeLineReaders sorted
+/// lines, ending in the same key from both readers, writing matches to a third
+/// output file.
+///
+/// Note that a single ByteRangeLineReader can read from multiple files and has
+/// itself an end position - that's why it's a range.
+///
+/// Each line read and written can have multiples fields, separated by the
+/// specified separator string.
 pub struct OutputFile {
   separator: String,
   verbose: bool,
   output_file: BufWriter<File>,
   output_fields: Vec<(bool, usize)>,
   pub file1: LineReader<ByteRangeLineReader>,
-  pub file2: LineReader<ByteRangeLineReader>,
-  end_pos: u64,
-}
-
-fn _pair_split(s: &String) -> (bool, usize)
-{
-  let vals: Vec<&str> = (*s).split(".").collect();
-  assert!(vals.len() == 2);
-  let value: u32 = vals[1].parse().unwrap();
-  (vals[0] == "1", value as usize)
+  pub file2: LineReader<ByteRangeLineReader>
 }
 
 impl OutputFile {
+  /// Initializes an OutputFile object.
+  ///
+  /// It receives an already split `file1` ByteRangeLineReader, whose start
+  /// position is the one at which it currently is when this function is called
+  /// and whose end position can be retrieved from the file1
+  /// ByteRangeLineReader.
+  ///
+  /// The file2 is not yet split, but it receives the list of multiple files
+  /// that compose it and a start position. With that and then end position of
+  /// the file1, the last line in the file1 range is read, the last key of that
+  /// line in file1 is obtained, and then the file2 files are scanned using a
+  /// binary search to find the line containing corresponding to the file1 last
+  /// key, and the position of that line in file2 is used to define the end
+  /// of a ByteRangeLineReader for file2.
+  ///
+  /// If verbose is set to true, some debug output will be shown when operating
+  /// with this OutputFile.
+  ///
+  /// The separator is used to separate the multiple fields when reading from
+  /// file1 and file2, and also to separate the output values when writing the
+  /// matches in the output file.
+  ///
+  /// The output file path is specified by the `output_file_str`.
+  ///
+  /// When a match is added, a line is written in the outputfile, containing
+  /// the fields specified in the output_fields_str_list.
+  ///
+  /// The format of the output_fields_str_list elements is of format
+  /// "file_num.field_num", for example "1.0" would specify the first element
+  /// of file1, and "2.3" would specify the 4th element of file2.
   pub fn new(
       separator: String,
       verbose: bool,
@@ -82,26 +112,58 @@ impl OutputFile {
 
     return OutputFile
     {
-      separator: separator.clone(),
-      verbose: verbose,
-      output_file: BufWriter::new(File::create(output_file_str).unwrap()),
-      output_fields: output_fields_str_list.iter().map(|s| _pair_split(s) ).collect(),
-      file1: LineReader::new(file1_range, separator.clone(), field1, verbose),
+      separator:      separator.clone(),
+      verbose:        verbose,
+      output_file:    BufWriter::new(File::create(output_file_str).unwrap()),
+
+      output_fields:  output_fields_str_list.iter().map(
+        |s| OutputFile::pair_split(s)
+      ).collect(),
+
+      file1:          LineReader::new(
+        file1_range,
+        separator.clone(),
+        field1,
+        verbose
+      ),
+
       file2: LineReader::new(
-        ByteRangeLineReader::open_range(file2_str_list, start_pos, end_pos, verbose),
+        ByteRangeLineReader::open_range(
+          file2_str_list,
+          start_pos,
+          end_pos,
+          verbose
+        ),
         separator.clone(),
         field2,
         verbose
-      ),
-      end_pos: end_pos
+      )
     }
   }
 
-  pub fn get_end_pos(&self) -> u64
+  /// This is used to process the format in which the output_fields_str_list is
+  /// set in the constructor.
+  ///
+  /// Processes a split, converting it to a pair of (bool, usize) that means
+  /// (is_file1, index of the field in split values of the line).
+  pub fn pair_split(s: &String) -> (bool, usize)
   {
-    return self.end_pos
+    let vals: Vec<&str> = (*s).split(".").collect();
+    assert!(vals.len() == 2);
+    let value: u32 = vals[1].parse().unwrap();
+    (vals[0] == "1", value as usize)
   }
 
+  /// Returns the multi-file calculated end position of the file2
+  pub fn file2_end(&self) -> u64
+  {
+    return self.file2.reader().end()
+  }
+
+  /// Adds a match for the current lines of file1 and file2, extracting the
+  /// required values from both lines according to the configuration given in
+  /// the contructor (the input var `output_fields_str_list`) and writing them
+  /// into a line in the output file.
   pub fn add_match(&mut self)
   {
     if self.verbose {
@@ -133,6 +195,7 @@ impl OutputFile {
     self.output_file.write(b"\n").unwrap();
   }
 
+  /// Returns whether there is still a line to be processed in file1 or not
   pub fn file1_has_current(&self) -> bool
   {
     if self.verbose {
@@ -141,6 +204,7 @@ impl OutputFile {
     self.file1.has_current()
   }
 
+  /// Returns whether there is still a line to be processed in file2 or not
   pub fn file2_has_current(&self) -> bool
   {
     if self.verbose {
@@ -149,6 +213,8 @@ impl OutputFile {
     self.file2.has_current()
   }
 
+  /// Tries to read the next line in file1, changing the current line in the
+  /// file1 ByteRangeLineReader to the next.
   pub fn file1_read_next(&mut self)
   {
     if self.verbose {
@@ -157,6 +223,8 @@ impl OutputFile {
     self.file1.read_next()
   }
 
+  /// Tries to read the next line in file2, changing the current line in the
+  /// file2 ByteRangeLineReader to the next.
   pub fn file2_read_next(&mut self)
   {
     if self.verbose {
@@ -165,21 +233,30 @@ impl OutputFile {
     self.file2.read_next()
   }
 
+  /// Returns a string corresponding with the key field value of the current
+  /// file1 line
   pub fn file1_key(&self) -> String
   {
     self.file1.key()
   }
 
+
+  /// Returns a string corresponding with the key field value of the current
+  /// file2 line
   pub fn file2_key(&self) -> String
   {
     self.file2.key()
   }
 
+  /// Returns a string corresponding with the specified field value of the
+  /// current file1 line
   pub fn file1_field(&self, i: usize) -> String
   {
     self.file1.field(i)
   }
 
+  /// Returns a string corresponding with the specified field value of the
+  /// current file2 line
   pub fn file2_field(&self, i: usize) -> String
   {
     self.file2.field(i)
@@ -195,7 +272,233 @@ mod test
   use tempdir::TempDir;
 
   use ByteRangeLineReader;
-  use ReadLiner;
+  use OutputFile;
 
+  //
+  fn assert_file_eq(path: &String, content: &str)
+  {
+    let mut out_f = File::open(path.as_str()).unwrap();
+    let mut contents: Vec<u8> = Vec::new();
+    out_f.read_to_end(&mut contents).unwrap();
+    let filestr = String::from_utf8(contents).unwrap();
+    assert_eq!(filestr, content);
+  }
+
+  // Creates a list of files with ints, one per line.
+  // Each file is separated by the '|' char, each line by the ',' char
+  fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
+  {
+    println!("write_files s={}", s);
+    return s.split('|').enumerate().map(
+      |x: (usize, &str)|
+      {
+        let file_path = String::from(tmp_dir.path().join(x.0.to_string()).to_str().unwrap());
+        let mut tmp_file = File::create(file_path.clone()).expect("create temp file");
+        println!("write_files x.0={}, x.1={}", x.0, x.1);
+        for fline in x.1.split(',')
+        {
+          tmp_file.write(fline.as_bytes()).unwrap();
+          tmp_file.write(b"\n").unwrap();
+        }
+        return file_path
+      }
+    ).collect()
+  }
+
+  #[test]
+  fn test_files()
+  {
+    let tmp_dir1 = TempDir::new("output_file").expect("create temp dir 1");
+    let tmp_dir2 = TempDir::new("output_file").expect("create temp dir 2");
+    let output_file_str = String::from(
+      tmp_dir1.path().join("out".to_string()).to_str().unwrap()
+    );
+
+    let file_1: &str = "0,4,5";
+    let files_1 = write_files(file_1, &tmp_dir1);
+    let file_1_ranges = ByteRangeLineReader::open(
+      /*file_list*/ &files_1,
+      /*num_readers*/ 1,
+      /*verbose*/ true
+    );
+
+    let file_2: &str = "1,3,4,";
+    let files_2 = write_files(file_2, &tmp_dir2);
+
+    {
+      let mut out = OutputFile::new(
+        /*separator*/ String::from(","),
+        /*verbose*/ true,
+        /*output_file_str*/ output_file_str.clone(),
+        /*output_fields_str_list*/ vec![
+          String::from("1.0"),
+          String::from("2.0"),
+          String::from("2.0")
+        ],
+        /*field1*/ 0,
+        /*file2_str_list*/ files_2,
+        /*field2*/ 0,
+        /*file1_range*/ file_1_ranges[0].clone(),
+        /*start_pos*/ 0
+      );
+
+      assert_eq!(out.file1_has_current(), true);
+      assert_eq!(out.file2_has_current(), true);
+
+      assert_eq!(out.file1_key(), String::from(""));
+      assert_eq!(out.file2_key(), String::from(""));
+
+      assert_eq!(out.file1_field(0), String::from(""));
+      assert_eq!(out.file2_field(0), String::from(""));
+      out.file2_read_next();
+
+      assert_eq!(out.file1_key(), String::from(""));
+      assert_eq!(out.file2_key(), String::from("1"));
+      assert_eq!(out.file1_field(0), String::from(""));
+      assert_eq!(out.file2_field(0), String::from("1"));
+
+      out.add_match(); // adds ",1,1" to output file
+
+      out.file1_read_next();
+      out.file2_read_next();
+
+      assert_eq!(out.file1_key(), String::from("0"));
+      assert_eq!(out.file2_key(), String::from("3"));
+      assert_eq!(out.file1_field(0), String::from("0"));
+      assert_eq!(out.file2_field(0), String::from("3"));
+
+      out.add_match(); // adds "0,3,3" to output file
+      out.file1_read_next();
+
+      assert_eq!(out.file1_key(), String::from("4"));
+      assert_eq!(out.file2_key(), String::from("3"));
+      assert_eq!(out.file1_field(0), String::from("4"));
+      assert_eq!(out.file2_field(0), String::from("3"));
+
+      out.add_match(); // adds "4,3,3" to output file
+
+      out.file2_read_next();
+
+      assert_eq!(out.file1_key(), String::from("4"));
+      assert_eq!(out.file2_key(), String::from("4"));
+      assert_eq!(out.file1_field(0), String::from("4"));
+      assert_eq!(out.file2_field(0), String::from("4"));
+
+      out.file1_read_next();
+      assert_eq!(out.file1_has_current(), true);
+      assert_eq!(out.file2_has_current(), true);
+
+      assert_eq!(out.file1_key(), String::from("5"));
+      assert_eq!(out.file2_key(), String::from("4"));
+      assert_eq!(out.file1_field(0), String::from("5"));
+      assert_eq!(out.file2_field(0), String::from("4"));
+
+      out.file1_read_next();
+      assert_eq!(out.file1_has_current(), false);
+      assert_eq!(out.file2_has_current(), true);
+
+      assert_eq!(out.file1_key(), String::from(""));
+      assert_eq!(out.file2_key(), String::from("4"));
+      assert_eq!(out.file1_field(0), String::from(""));
+      assert_eq!(out.file2_field(0), String::from("4"));
+
+      out.file2_read_next();
+      assert_eq!(out.file1_has_current(), false);
+      assert_eq!(out.file2_has_current(), false);
+
+      assert_eq!(out.file1_key(), String::from(""));
+      assert_eq!(out.file2_key(), String::from(""));
+      assert_eq!(out.file1_field(0), String::from(""));
+      assert_eq!(out.file2_field(0), String::from(""));
+    }
+
+    assert_file_eq(
+      &output_file_str,
+      ",1,1\n0,3,3\n4,3,3\n"
+    );
+  }
+
+  #[test]
+  fn test_more_fields_and_chars()
+  {
+    let tmp_dir1 = TempDir::new("output_file").expect("create temp dir 1");
+    let tmp_dir2 = TempDir::new("output_file").expect("create temp dir 2");
+    let output_file_str = String::from(
+      tmp_dir1.path().join("out".to_string()).to_str().unwrap()
+    );
+
+    let file_1: &str = "111;bbbbb;ccc,2222222;5;767u;oo";
+    let files_1 = write_files(file_1, &tmp_dir1);
+    let file_1_ranges = ByteRangeLineReader::open(
+      /*file_list*/ &files_1,
+      /*num_readers*/ 1,
+      /*verbose*/ true
+    );
+
+    let file_2: &str = "1;aaa;!!!#↓,3;lol;4";
+    let files_2 = write_files(file_2, &tmp_dir2);
+
+    {
+      let mut out = OutputFile::new(
+        /*separator*/ String::from(";"),
+        /*verbose*/ true,
+        /*output_file_str*/ output_file_str.clone(),
+        /*output_fields_str_list*/ vec![
+          String::from("1.2"),
+          String::from("1.1"),
+          String::from("2.0"),
+        ],
+        /*field1*/ 1,
+        /*file2_str_list*/ files_2,
+        /*field2*/ 2,
+        /*file1_range*/ file_1_ranges[0].clone(),
+        /*start_pos*/ 0
+      );
+
+      out.file1_read_next();
+      out.file2_read_next();
+      assert_eq!(out.file1_has_current(), true);
+      assert_eq!(out.file2_has_current(), true);
+
+      assert_eq!(out.file1_key(), String::from("bbbbb"));
+      assert_eq!(out.file2_key(), String::from("!!!#↓"));
+
+      assert_eq!(out.file1_field(0), String::from("111"));
+      assert_eq!(out.file1_field(1), String::from("bbbbb"));
+      assert_eq!(out.file1_field(2), String::from("ccc"));
+
+      assert_eq!(out.file2_field(0), String::from("1"));
+      assert_eq!(out.file2_field(1), String::from("aaa"));
+      assert_eq!(out.file2_field(2), String::from("!!!#↓"));
+
+      out.file1_read_next();
+
+      assert_eq!(out.file1_key(), String::from("5"));
+      assert_eq!(out.file2_key(), String::from("!!!#↓"));
+
+      assert_eq!(out.file1_field(0), String::from("2222222"));
+      assert_eq!(out.file1_field(1), String::from("5"));
+      assert_eq!(out.file1_field(2), String::from("767u"));
+      assert_eq!(out.file1_field(3), String::from("oo"));
+
+      assert_eq!(out.file2_field(0), String::from("1"));
+      assert_eq!(out.file2_field(1), String::from("aaa"));
+      assert_eq!(out.file2_field(2), String::from("!!!#↓"));
+
+      out.file2_read_next();
+
+      assert_eq!(out.file1_key(), String::from("5"));
+      assert_eq!(out.file2_key(), String::from("4"));
+
+      assert_eq!(out.file1_field(0), String::from("2222222"));
+      assert_eq!(out.file1_field(1), String::from("5"));
+      assert_eq!(out.file1_field(2), String::from("767u"));
+      assert_eq!(out.file1_field(3), String::from("oo"));
+
+      assert_eq!(out.file2_field(0), String::from("3"));
+      assert_eq!(out.file2_field(1), String::from("lol"));
+      assert_eq!(out.file2_field(2), String::from("4"));
+    }
+  }
 
 }
