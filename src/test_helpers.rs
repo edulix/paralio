@@ -16,6 +16,7 @@
 
 use std::io::prelude::*;
 use std::fs::File;
+use std::path::Path;
 
 use tempdir::TempDir;
 
@@ -48,4 +49,21 @@ pub fn _write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
       return file_path
     }
   ).collect()
+}
+
+// compares multiple consecutive file's contents with a string. Each file is
+// a number (0, 1, 2, etc) and their content is separated in `content` by a
+// '|' character.
+pub fn _assert_files_eq(dir_path: &String, content: &str)
+{
+  for (i, file_content) in content.split('|').enumerate()
+  {
+    let file_string = Path::new(&dir_path).join(i.to_string());
+    let file_path = file_string.to_str().unwrap();
+    let mut out_f = File::open(file_path).unwrap();
+    let mut contents: Vec<u8> = Vec::new();
+    out_f.read_to_end(&mut contents).unwrap();
+    let filestr = String::from_utf8(contents).unwrap();
+    assert_eq!(filestr, file_content);
+  }
 }

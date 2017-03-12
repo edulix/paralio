@@ -91,7 +91,7 @@ pub fn execute_parallel_join(
       out.file1_read_next();
       out.file2_read_next();
 
-      if thread_num as i32 == njobs -1 {
+      if thread_num as i32 == njobs -1 && verbose {
         println!("thread={} elapsed={}s {}ns", thread_num, start.elapsed().as_secs(), start.elapsed().subsec_nanos());
       }
 
@@ -119,7 +119,7 @@ pub fn execute_parallel_join(
           _=> { break },
         }
       }
-      if thread_num as i32 == njobs -1 {
+      if thread_num as i32 == njobs -1 && verbose {
         println!("thread={} END elapsed={}s {}ns", thread_num, start.elapsed().as_secs(), start.elapsed().subsec_nanos());
       }
     }));
@@ -141,14 +141,98 @@ pub fn execute_parallel_join(
   }
 }
 
-// #[cfg(test)]
-// mod test
-// {
-//   use std::io::prelude::*;
-//   use std::fs::File;
-//
-//   use tempdir::TempDir;
-//
-//   use ByteRangeLineReader;
-//   use OutputFile;
-// }
+#[cfg(test)]
+mod test
+{
+  use tempdir::TempDir;
+
+  use test_helpers::_write_files;
+  use test_helpers::_assert_files_eq;
+
+  use execute_parallel_join;
+
+  #[test]
+  fn test_join1()
+  {
+    struct Data {
+      file1_str: &'static str,
+      file2_str: &'static str,
+      separator: &'static str,
+      field1: u32,
+      field2: u32,
+      output_fields_str_list: &'static str,
+      output_str: &'static str,
+      njobs: i32
+    }
+
+    let l: Vec<Data> = vec![
+      Data {
+        file1_str: "1,2,3,4",
+        file2_str: "1,2,4,5,6",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0,1.0",
+        output_str: "1,1\n2,2\n4,4\n",
+        njobs: 1
+      },
+      Data {
+        file1_str: "1;aa,2;bb,3;cc,4;dd",
+        file2_str: "1;AAAAAA,2;BBBBBBBB,4;CCCCC,5;DD,6;EEEEE",
+        separator: ";",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.1,2.1",
+        output_str: "aa;AAAAAA\nbb;BBBBBBBB\ndd;CCCCC\n",
+        njobs: 1
+      },
+      Data {
+        file1_str: "1;aa,2;bb,3;cc,4;dd",
+        file2_str: "1;aa;AAAA,2;BBBBBBBB;42,4;cc;CCC,5;DD;ddd,6;EEEEE;",
+        separator: ";",
+        field1: 1,
+        field2: 1,
+        output_fields_str_list: "1.0,1.1,2.1,2.2",
+        output_str: "1;aa;aa;AAAA\n3;cc;cc;CCC\n",
+        njobs: 1
+      },
+      /*Data {
+        file1_str: "1,2|3,4",
+        file2_str: "1,2,4|5,6",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0,1.0",
+        output_str: "1,1\n2,2\n4,4\n",
+        njobs: 1
+      },*/
+    ];
+    for ref s in l.iter()
+    {
+      let tmp_dir_1 = TempDir::new("parallel_join_1").expect("create temp dir");
+      let tmp_dir_2 = TempDir::new("parallel_join_2").expect("create temp dir");
+      let tmp_dir_out = TempDir::new("parallel_join_out").expect("create temp dir");
+
+      let files_1 = _write_files(s.file1_str, &tmp_dir_1);
+      let files_2 = _write_files(s.file2_str, &tmp_dir_2);
+      let tmp_dir_out_path = String::from(tmp_dir_out.path().to_str().unwrap());
+      let separator = String::from(s.separator);
+      let output_fields_str_list: Vec<String> = {
+        s.output_fields_str_list.split(',').map(String::from).collect()
+      };
+
+      execute_parallel_join(
+        &files_1,
+        &files_2,
+        &separator,
+        s.field1,
+        s.field2,
+        &output_fields_str_list,
+        &tmp_dir_out_path,
+        false,
+        s.njobs
+      );
+      _assert_files_eq(&tmp_dir_out_path, s.output_str);
+    }
+  }
+}
