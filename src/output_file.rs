@@ -266,44 +266,13 @@ impl OutputFile {
 #[cfg(test)]
 mod test
 {
-  use std::io::prelude::*;
-  use std::fs::File;
-
   use tempdir::TempDir;
+
+  use test_helpers::_assert_file_eq;
+  use test_helpers::_write_files;
 
   use ByteRangeLineReader;
   use OutputFile;
-
-  // compares a file's contents with a string
-  fn assert_file_eq(path: &String, content: &str)
-  {
-    let mut out_f = File::open(path.as_str()).unwrap();
-    let mut contents: Vec<u8> = Vec::new();
-    out_f.read_to_end(&mut contents).unwrap();
-    let filestr = String::from_utf8(contents).unwrap();
-    assert_eq!(filestr, content);
-  }
-
-  // Creates a list of files with ints, one per line.
-  // Each file is separated by the '|' char, each line by the ',' char
-  fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
-  {
-    println!("write_files s={}", s);
-    return s.split('|').enumerate().map(
-      |x: (usize, &str)|
-      {
-        let file_path = String::from(tmp_dir.path().join(x.0.to_string()).to_str().unwrap());
-        let mut tmp_file = File::create(file_path.clone()).expect("create temp file");
-        println!("write_files x.0={}, x.1={}", x.0, x.1);
-        for fline in x.1.split(',')
-        {
-          tmp_file.write(fline.as_bytes()).unwrap();
-          tmp_file.write(b"\n").unwrap();
-        }
-        return file_path
-      }
-    ).collect()
-  }
 
   #[test]
   fn test_files()
@@ -315,7 +284,7 @@ mod test
     );
 
     let file_1: &str = "0,4,5";
-    let files_1 = write_files(file_1, &tmp_dir1);
+    let files_1 = _write_files(file_1, &tmp_dir1);
     let file_1_ranges = ByteRangeLineReader::open(
       /*file_list*/ &files_1,
       /*num_readers*/ 1,
@@ -323,7 +292,7 @@ mod test
     );
 
     let file_2: &str = "1,3,4,";
-    let files_2 = write_files(file_2, &tmp_dir2);
+    let files_2 = _write_files(file_2, &tmp_dir2);
 
     {
       let mut out = OutputFile::new(
@@ -412,7 +381,7 @@ mod test
       assert_eq!(out.file2_field(0), String::from(""));
     }
 
-    assert_file_eq(
+    _assert_file_eq(
       &output_file_str,
       ",1,1\n0,3,3\n4,3,3\n"
     );
@@ -428,7 +397,7 @@ mod test
     );
 
     let file_1: &str = "111;bbbbb;ccc,2222222;5;767u;oo";
-    let files_1 = write_files(file_1, &tmp_dir1);
+    let files_1 = _write_files(file_1, &tmp_dir1);
     let file_1_ranges = ByteRangeLineReader::open(
       /*file_list*/ &files_1,
       /*num_readers*/ 1,
@@ -436,7 +405,7 @@ mod test
     );
 
     let file_2: &str = "1;aaa;!!!#↓,3;lol;4";
-    let files_2 = write_files(file_2, &tmp_dir2);
+    let files_2 = _write_files(file_2, &tmp_dir2);
 
     {
       let mut out = OutputFile::new(

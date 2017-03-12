@@ -27,6 +27,7 @@ mod line_reader;
 mod output_file;
 mod byte_range_line_reader;
 mod parallel_join;
+mod test_helpers;
 
 pub use multi_file_reader::MultiFileReader;
 pub use multi_file_reader::ReadLiner;

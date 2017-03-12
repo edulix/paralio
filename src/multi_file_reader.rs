@@ -551,48 +551,22 @@ impl FindKeyPosition for MultiFileReader
 
 #[cfg(test)]
 mod test {
-  use std::io::prelude::*;
-  use std::fs::File;
-
   use tempdir::TempDir;
+
+  use test_helpers::_write_files;
 
   use MultiFileReader;
   use ReadLiner;
   use multi_file_reader::FindKeyPosition;
-
   use multi_file_reader::get_key;
   use multi_file_reader::read_file_last_line;
-
-
-  /**
-   * Creates a list of files with ints, one per line.
-   * Each file is separated by the '|' char, each line by the ',' char
-   */
-  pub fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
-  {
-    println!("write_files s={}", s);
-     return s.split('|').enumerate().map(
-      |x: (usize, &str)|
-      {
-        let file_path = String::from(tmp_dir.path().join(x.0.to_string()).to_str().unwrap());
-        let mut tmp_file = File::create(file_path.clone()).expect("create temp file");
-        println!("write_files x.0={}, x.1={}", x.0, x.1);
-        for fline in x.1.split(',')
-        {
-          tmp_file.write(fline.as_bytes()).unwrap();
-          tmp_file.write(b"\n").unwrap();
-        }
-        return file_path
-      }
-    ).collect()
-  }
 
   #[test]
   fn test_multifile_get_files_info()
   {
     let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let files_info = MultiFileReader::get_files_info(&files);
     assert_eq!(files_info[0].start, 0);
@@ -607,7 +581,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let files_info = MultiFileReader::get_files_info(&files);
 
     assert_eq!(MultiFileReader::find_file_info(&files_info, 0), 0);
@@ -623,7 +597,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let mut reader = MultiFileReader::open(&files, 0);
 
     let mut s = String::new();
@@ -668,7 +642,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let mut reader = MultiFileReader::open(&files, 8);
 
     let mut s = String::new();
@@ -685,7 +659,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let mut reader = MultiFileReader::open(&files, 9);
 
     let mut s = String::new();
@@ -702,7 +676,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let mut reader = MultiFileReader::open(&files, 7);
 
     let mut s = String::new();
@@ -719,7 +693,7 @@ mod test {
   {
     let data = "0,1,2|3|4,5,6|7,8,9,10|11,12,13,14,15,16";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
     let mut reader = MultiFileReader::open(&files, 0);
 
     let mut s = String::new();
@@ -774,7 +748,7 @@ mod test {
   {
     let data = "aaaaaaaaaaa,b,ccc,dddddddddddddddddddd,erergerg";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let (fsize, last_line) = read_file_last_line(files.first().unwrap());
     assert_eq!(fsize as usize, data.len()+1 /*last new line*/);
@@ -786,7 +760,7 @@ mod test {
   {
     let data = "0,1,2,3,4,5,6,7,8,9,10";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let pos = MultiFileReader::find_key_pos("0".to_string(), &files, ',', 0);
     assert_eq!(pos, Some(0));
@@ -827,7 +801,7 @@ mod test {
   {
     let data = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let pos = MultiFileReader::find_key_pos("16".to_string(), &files, '|', 0);
     assert_eq!(pos, Some(38));
@@ -838,7 +812,7 @@ mod test {
   {
     let data = "aaa,aab,aac,abb,ccc,ddde,eeeee,ffff,g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let pos = MultiFileReader::find_key_pos("ffff".to_string(), &files, '|', 0);
     assert_eq!(pos, Some(31));
@@ -849,7 +823,7 @@ mod test {
   {
     let data = "aaa,aab,aac,abb,ccc,ddde,eeeee,ffff,g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let pos = MultiFileReader::find_key_pos("fggg".to_string(), &files, '|', 0);
     assert_eq!(pos, Some(31));
@@ -860,7 +834,7 @@ mod test {
   {
     let data = "whatever#aaa,whatever2#aab,whatever33#aac,whatever55#abb,whatever66#ccc,whatever___#ddde,what__ever#eeeee,a#ffff,whate#g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
-    let files = write_files(data, &tmp_dir);
+    let files = _write_files(data, &tmp_dir);
 
     let pos = MultiFileReader::find_key_pos("fggg".to_string(), &files, '#', 1);
     assert_eq!(pos, Some(106));

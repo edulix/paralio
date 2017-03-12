@@ -141,24 +141,14 @@ pub fn execute_parallel_join(
   }
 }
 
-#[cfg(test)]
-mod test
-{
-  use std::io::prelude::*;
-  use std::fs::File;
-
-  use tempdir::TempDir;
-
-  use ByteRangeLineReader;
-  use OutputFile;
-
-  // compares a file's contents with a string
-  fn assert_file_eq(path: &String, content: &str)
-  {
-    let mut out_f = File::open(path.as_str()).unwrap();
-    let mut contents: Vec<u8> = Vec::new();
-    out_f.read_to_end(&mut contents).unwrap();
-    let filestr = String::from_utf8(contents).unwrap();
-    assert_eq!(filestr, content);
-  }
-}
+// #[cfg(test)]
+// mod test
+// {
+//   use std::io::prelude::*;
+//   use std::fs::File;
+//
+//   use tempdir::TempDir;
+//
+//   use ByteRangeLineReader;
+//   use OutputFile;
+// }

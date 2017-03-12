@@ -200,13 +200,12 @@ impl ReadLiner for ByteRangeLineReader
 #[cfg(test)]
 mod test
 {
-  use std::io::prelude::*;
-  use std::fs::File;
-
   use tempdir::TempDir;
 
   use ByteRangeLineReader;
   use ReadLiner;
+
+  use test_helpers::_write_files;
 
   // Compares the output of a reader with some example string.
   // For example if the string is "0,1,2" it means that the reader will
@@ -228,32 +227,11 @@ mod test
     assert_eq!(expected_last_line, reader.last_line());
   }
 
-  // Creates a list of files with ints, one per line.
-  // Each file is separated by the '|' char, each line by the ',' char
-  fn write_files(s: &str, tmp_dir: &TempDir) -> Vec<String>
-  {
-    println!("write_files s={}", s);
-     return s.split('|').enumerate().map(
-      |x: (usize, &str)|
-      {
-        let file_path = String::from(tmp_dir.path().join(x.0.to_string()).to_str().unwrap());
-        let mut tmp_file = File::create(file_path.clone()).expect("create temp file");
-        println!("write_files x.0={}, x.1={}", x.0, x.1);
-        for fline in x.1.split(',')
-        {
-          tmp_file.write(fline.as_bytes()).unwrap();
-          tmp_file.write(b"\n").unwrap();
-        }
-        return file_path
-      }
-    ).collect()
-  }
-
   fn test_files(input: &str, output: &str)
   {
-    println!("\nwrite_files\n\tinput={}\n\toutput={}", input, output);
+    println!("\n_write_files\n\tinput={}\n\toutput={}", input, output);
     let tmp_dir = TempDir::new("byterange").expect("create temp dir");
-    let files = write_files(input, &tmp_dir);
+    let files = _write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
     let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
@@ -326,7 +304,7 @@ mod test
     let input: &str = "0,1,2,3,4,5";
     let output: &str = "0,1,2,3,4,5";
     let tmp_dir = TempDir::new("byterange").expect("create temp dir");
-    let files = write_files(input, &tmp_dir);
+    let files = _write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
     let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
