@@ -1,4 +1,4 @@
-name: parallel_pg_select_dump
+name: ppdump
 version: "1.0"
 author: Eduardo Robles Elvira <edulix@nvotes.com>
 about: Executes an SQL select query in multiple threads in parallel

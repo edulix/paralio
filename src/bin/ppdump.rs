@@ -1,17 +1,17 @@
 /**
  * Copyright (C) 2017 Eduardo Robles Elvira <edulix@nvotes.com>
 
- * parallel_pg_select_dump is free software: you can redistribute it and/or modify
+ * paralio is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License.
 
- * parallel_pg_select_dump  is distributed in the hope that it will be useful,
+ * paralio is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
 
  * You should have received a copy of the GNU Affero General Public License
- * along with parallel_pg_select_dump.  If not, see <http://www.gnu.org/licenses/>.
+ * along with paralio.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 extern crate postgres;
@@ -33,7 +33,7 @@ use postgres::{Connection, TlsMode};
 
 fn main()
 {
-  let yaml = load_yaml!("cli.yml");
+  let yaml = load_yaml!("ppdump.yml");
   let matches = App::from_yaml(yaml).get_matches();
 
   let query_str = matches.value_of("query").unwrap().to_string();
