@@ -206,6 +206,46 @@ mod test
         output_str: "1,1\n2,2\n4,4\n",
         njobs: 1
       },
+      Data {
+        file1_str: "0,1,2,3,4,5,6,7,8,9",
+        file2_str: "0,1,2,3,4,5,6,7,8,9",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0",
+        output_str: "0\n1\n2\n3\n4\n5\n|6\n7\n8\n9\n",
+        njobs: 2
+      },
+      Data {
+        file1_str: "0,1,2,3,4,5,6,7,8,9",
+        file2_str: "0,1,2,3,4,5,6,7,9",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0",
+        output_str: "0\n1\n2\n3\n4\n5\n|6\n7\n9\n",
+        njobs: 2
+      },
+      Data {
+        file1_str: "0,1,2,3,4,5,6,7,8,9",
+        file2_str: "5,6,7,8,9",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0",
+        output_str: "5\n|6\n7\n8\n9\n",
+        njobs: 2
+      },
+      Data {
+        file1_str: "0,1,2,3,4,5,6,7,8,9",
+        file2_str: "6,7,8,9",
+        separator: ",",
+        field1: 0,
+        field2: 0,
+        output_fields_str_list: "1.0",
+        output_str: "|6\n7\n8\n9\n",
+        njobs: 2
+      },
     ];
     for ref s in l.iter()
     {
