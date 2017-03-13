@@ -100,7 +100,7 @@ impl OutputFile {
     }
 
     let end_pos: u64 = MultiFileReader::find_key_pos(
-      last_key, &file2_str_list, separator_char, field2 as usize
+      last_key, &file2_str_list, separator_char, field2 as usize, verbose
     ).unwrap();
 
     if verbose {

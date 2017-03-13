@@ -196,7 +196,7 @@ mod test
         output_str: "1;aa;aa;AAAA\n3;cc;cc;CCC\n",
         njobs: 1
       },
-      /*Data {
+      Data {
         file1_str: "1,2|3,4",
         file2_str: "1,2,4|5,6",
         separator: ",",
@@ -205,7 +205,7 @@ mod test
         output_fields_str_list: "1.0,1.0",
         output_str: "1,1\n2,2\n4,4\n",
         njobs: 1
-      },*/
+      },
     ];
     for ref s in l.iter()
     {
