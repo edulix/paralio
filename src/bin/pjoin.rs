@@ -49,6 +49,8 @@ fn main()
 
   let field2: u32 = matches.value_of("field2").unwrap().parse().unwrap();
 
+  let buffer_size: u32 = matches.value_of("field2").unwrap().parse().unwrap();
+
   let output_fields_str_list: Vec<String> = matches.values_of("output-fields")
     .unwrap().map(String::from).collect();
 
@@ -67,7 +69,8 @@ fn main()
     &output_fields_str_list,
     &output_path,
     verbose,
-    njobs
+    njobs,
+    buffer_size
   );
 
 }

@@ -19,7 +19,6 @@ use std::cmp;
 
 use ReadLiner;
 use MultiFileReader;
-use multi_file_reader::BUFFER_SIZE;
 
 /// ByteRangeLineReader allows to read sequencially only a slice of a
 /// MultiFileReader, from the current position to a specified multi-file end
@@ -28,7 +27,8 @@ pub struct ByteRangeLineReader
 {
   reader: MultiFileReader,
   end: u64,
-  current: u64
+  current: u64,
+  buffer_size: u32
 }
 
 impl ByteRangeLineReader
@@ -40,13 +40,14 @@ impl ByteRangeLineReader
     {
       reader: self.reader.clone(),
       end: self.end,
-      current: self.current
+      current: self.current,
+      buffer_size: self.buffer_size
     }
   }
 
   /// Divides a file in multiple ByteRangeLineReaders, trying to divide the
   /// readers with roughly the same number of bytes and dividing whole lines.
-  pub fn open(file_list: &Vec<String>, num_readers: u64, verbose: bool)
+  pub fn open(file_list: &Vec<String>, num_readers: u64, verbose: bool, buffer_size: u32)
     -> Vec<ByteRangeLineReader>
   {
     let length = MultiFileReader::len(file_list);
@@ -69,7 +70,8 @@ impl ByteRangeLineReader
         {
           reader: MultiFileReader::open(file_list, i * range_size),
           end: (i + 1) * range_size,
-          current: i * range_size
+          current: i * range_size,
+          buffer_size: buffer_size
         };
         if i > 0 {
           let mut s: String = String::new();
@@ -86,7 +88,8 @@ impl ByteRangeLineReader
     file_list: Vec<String>,
     start_pos: u64,
     end_pos: u64,
-    verbose: bool
+    verbose: bool,
+    buffer_size: u32
   ) -> ByteRangeLineReader
   {
     if verbose {
@@ -100,7 +103,8 @@ impl ByteRangeLineReader
     {
       reader: MultiFileReader::open(&file_list, start_pos),
       end: end_pos,
-      current: start_pos
+      current: start_pos,
+      buffer_size: buffer_size
     }
   }
 
@@ -123,10 +127,10 @@ impl ByteRangeLineReader
   {
     let seek_pos: u64 = cmp::max(
       0,
-      (self.end as i64) - BUFFER_SIZE as i64
+      (self.end as i64) - self.buffer_size as i64
     ) as u64;
     let buf_size: usize = (self.end - seek_pos) as usize + cmp::min(
-      BUFFER_SIZE as i64,
+      self.buffer_size as i64,
       cmp::max(
         0,
         self.reader.own_len() as i64 - self.end as i64
@@ -234,7 +238,9 @@ mod test
     let files = _write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
-    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
+    let mut readers = ByteRangeLineReader::open(
+      &files, output_split.len() as u64, true, /*buffer_size*/16384
+      );
     assert_eq!(readers.len(), output_split.len());
 
     for (i, x) in output_split.iter().enumerate()
@@ -307,7 +313,9 @@ mod test
     let files = _write_files(input, &tmp_dir);
     let output_split: Vec<&str> = output.split('|').collect();
 
-    let mut readers = ByteRangeLineReader::open(&files, output_split.len() as u64, true);
+    let mut readers = ByteRangeLineReader::open(
+      &files, output_split.len() as u64, true, /*buffer_size*/16384
+    );
     assert_eq!(readers.len(), output_split.len());
 
     let mut buf = String::new();

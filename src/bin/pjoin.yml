@@ -63,6 +63,14 @@ args:
         short: v
         long: verbose
         help: "Print verbose info during execution"
+    - buffer-size:
+        short: u
+        long: buffer-size
+        value_name: BUFFERSIZE
+        help: "Size of the buffer when doing some read operations. Changing it to fit any line can improve execution speed. Change it so that any line is not larger than this."
+        takes_value: true
+        required: true
+        default_value: "16384"
     - jobs:
         short: j
         long: jobs

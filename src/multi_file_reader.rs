@@ -22,9 +22,6 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::cmp;
 
-/// Default buffer size to which lines are read from files.
-pub static BUFFER_SIZE: usize = 16384;
-
 // A FileInfo is used to indicate the position at which a file with a given
 // path starts and ends, with `start` and `end` being multi-file references of
 // positions in a MultiFileReader (or a vector of files).
@@ -348,15 +345,16 @@ pub trait FindKeyPosition
     path_list: &Vec<String>,
     separator: char,
     key_field: usize,
-    verbose: bool
+    verbose: bool,
+    buffer_size: u32
   ) -> Option<u64>;
 }
 
 /// Returns the last line of the file at the supplied file.
 ///
 /// Note: It only works if the last line of the file is shorter than
-/// `BUFFER_SIZE` in bytes.
-pub fn read_file_last_line(path: &String) -> String
+/// `buffer_size` in bytes.
+pub fn read_file_last_line(path: &String, buffer_size: u32) -> String
 {
   let file = File::open(path.as_str()).unwrap();
   let mut file_buf = BufReader::new(file);
@@ -366,7 +364,7 @@ pub fn read_file_last_line(path: &String) -> String
   // than the content of the last file.
   let seek_pos: u64 = cmp::max(
     0,
-    file_size as i64 - (BUFFER_SIZE as i64)
+    file_size as i64 - (buffer_size as i64)
   ) as u64;
 
   let mut buf = vec![0; (file_size - seek_pos) as usize];
@@ -400,7 +398,7 @@ impl FindKeyPosition for MultiFileReader
   /// - This function should return either the seek position of the key if it is
   ///   found, or the position of the highest value that is lower than the key
   ///   otherwise.
-  /// - The last element in the last file must not be bigger than BUFFER_SIZE
+  /// - The last element in the last file must not be bigger than buffer_size
   ///   bytes
   /// - files are new-line terminated and contain at least one line
   fn find_key_pos(
@@ -408,7 +406,8 @@ impl FindKeyPosition for MultiFileReader
       path_list: &Vec<String>,
       separator: char,
       key_field: usize,
-      verbose: bool
+      verbose: bool,
+      buffer_size: u32
   ) -> Option<u64>
   {
     // contains:
@@ -446,7 +445,7 @@ impl FindKeyPosition for MultiFileReader
       // buffer contains at least one \n character & split the buffer by that
       // character to get the last line.
       let last_file_path = path_list.last().unwrap().clone();
-      let last_str: String = read_file_last_line(&last_file_path);
+      let last_str: String = read_file_last_line(&last_file_path, buffer_size);
       let last_key: &str = get_key(&last_str, separator, key_field);
 
       /*return*/Coordinate
@@ -775,7 +774,7 @@ mod test {
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
 
-    let last_line = read_file_last_line(files.first().unwrap());
+    let last_line = read_file_last_line(files.first().unwrap(), 16384);
     assert_eq!(last_line, "erergerg");
   }
 
@@ -785,38 +784,61 @@ mod test {
     let data = "0,1,2,3,4,5,6,7,8,9,10";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
+    let buffer_size = 16384;
 
-    let pos = MultiFileReader::find_key_pos("0".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "0".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(0));
 
-    let pos = MultiFileReader::find_key_pos("10".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "10".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(20));
 
-    let pos = MultiFileReader::find_key_pos("1".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "1".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(2));
 
-    let pos = MultiFileReader::find_key_pos("2".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "2".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(4));
 
-    let pos = MultiFileReader::find_key_pos("3".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "3".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(6));
 
-    let pos = MultiFileReader::find_key_pos("4".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "4".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(8));
 
-    let pos = MultiFileReader::find_key_pos("5".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "5".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(10));
 
-    let pos = MultiFileReader::find_key_pos("6".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "6".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(12));
 
-    let pos = MultiFileReader::find_key_pos("9".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "9".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(18));
 
-    let pos = MultiFileReader::find_key_pos("8".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "8".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(16));
 
-    let pos = MultiFileReader::find_key_pos("7".to_string(), &files, ',', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "7".to_string(), &files, ',', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(14));
   }
 
@@ -826,8 +848,10 @@ mod test {
     let data = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
+    let buffer_size = 16384;
 
-    let pos = MultiFileReader::find_key_pos("16".to_string(), &files, '|', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "16".to_string(), &files, '|', 0, false, buffer_size);
     assert_eq!(pos, Some(38));
   }
 
@@ -837,8 +861,11 @@ mod test {
     let data = "aaa,aab,aac,abb,ccc,ddde,eeeee,ffff,g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
+    let buffer_size = 16384;
 
-    let pos = MultiFileReader::find_key_pos("ffff".to_string(), &files, '|', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "ffff".to_string(), &files, '|', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(31));
   }
 
@@ -848,8 +875,11 @@ mod test {
     let data = "aaa,aab,aac,abb,ccc,ddde,eeeee,ffff,g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
+    let buffer_size = 16384;
 
-    let pos = MultiFileReader::find_key_pos("fggg".to_string(), &files, '|', 0, false);
+    let pos = MultiFileReader::find_key_pos(
+      "fggg".to_string(), &files, '|', 0, false, buffer_size
+    );
     assert_eq!(pos, Some(31));
   }
 
@@ -859,8 +889,11 @@ mod test {
     let data = "whatever#aaa,whatever2#aab,whatever33#aac,whatever55#abb,whatever66#ccc,whatever___#ddde,what__ever#eeeee,a#ffff,whate#g";
     let tmp_dir = TempDir::new("multi_file_reader").expect("create temp dir");
     let files = _write_files(data, &tmp_dir);
+    let buffer_size = 16384;
 
-    let pos = MultiFileReader::find_key_pos("fggg".to_string(), &files, '#', 1, false);
+    let pos = MultiFileReader::find_key_pos(
+      "fggg".to_string(), &files, '#', 1, false, buffer_size
+    );
     assert_eq!(pos, Some(106));
   }
 }

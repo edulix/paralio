@@ -40,9 +40,10 @@ pub fn execute_parallel_join(
   output_path: &String,
   verbose: bool,
   njobs: i32,
+  buffer_size: u32
 )
 {
-  let a_ranges = ByteRangeLineReader::open(&file1_str_list, njobs as u64, verbose);
+  let a_ranges = ByteRangeLineReader::open(&file1_str_list, njobs as u64, verbose, buffer_size);
 
   let mut children = vec![];
 
@@ -71,7 +72,9 @@ pub fn execute_parallel_join(
 
     children.push( thread::spawn(move ||
     {
-      let path = String::from(Path::new(&output_path).join(thread_num.to_string()).to_str().unwrap());
+      let path = String::from(
+        Path::new(&output_path).join(thread_num.to_string()).to_str().unwrap()
+      );
       if verbose {
         println!("thread {}: output path: {}", thread_num, path);
       }
@@ -85,7 +88,8 @@ pub fn execute_parallel_join(
         file2_str_list,
         field2,
         a_range,
-        start_pos
+        start_pos,
+        buffer_size
       );
       next_tx.send(out.file2_end()).unwrap();
       out.file1_read_next();
@@ -270,7 +274,8 @@ mod test
         &output_fields_str_list,
         &tmp_dir_out_path,
         false,
-        s.njobs
+        s.njobs,
+        /*buffer_size*/ 16384
       );
       _assert_files_eq(&tmp_dir_out_path, s.output_str);
     }

@@ -82,7 +82,8 @@ impl OutputFile {
       file2_str_list: Vec<String>,
       field2: u32,
       file1_range: ByteRangeLineReader,
-      start_pos: u64
+      start_pos: u64,
+      buffer_size: u32
   ) -> OutputFile
   {
     let separator_char = separator.chars().next().unwrap();
@@ -100,7 +101,12 @@ impl OutputFile {
     }
 
     let end_pos: u64 = MultiFileReader::find_key_pos(
-      last_key, &file2_str_list, separator_char, field2 as usize, verbose
+      last_key,
+      &file2_str_list,
+      separator_char,
+      field2 as usize,
+      verbose,
+      buffer_size
     ).unwrap();
 
     if verbose {
@@ -132,7 +138,8 @@ impl OutputFile {
           file2_str_list,
           start_pos,
           end_pos,
-          verbose
+          verbose,
+          buffer_size
         ),
         separator.clone(),
         field2,
@@ -288,7 +295,8 @@ mod test
     let file_1_ranges = ByteRangeLineReader::open(
       /*file_list*/ &files_1,
       /*num_readers*/ 1,
-      /*verbose*/ true
+      /*verbose*/ true,
+      /*buffer_size*/ 16384
     );
 
     let file_2: &str = "1,3,4,";
@@ -308,7 +316,8 @@ mod test
         /*file2_str_list*/ files_2,
         /*field2*/ 0,
         /*file1_range*/ file_1_ranges[0].clone(),
-        /*start_pos*/ 0
+        /*start_pos*/ 0,
+        /*buffer_size*/ 16384
       );
 
       assert_eq!(out.file1_has_current(), true);
@@ -401,7 +410,8 @@ mod test
     let file_1_ranges = ByteRangeLineReader::open(
       /*file_list*/ &files_1,
       /*num_readers*/ 1,
-      /*verbose*/ true
+      /*verbose*/ true,
+      /*buffer_size*/ 16384
     );
 
     let file_2: &str = "1;aaa;!!!#↓,3;lol;4";
@@ -421,7 +431,8 @@ mod test
         /*file2_str_list*/ files_2,
         /*field2*/ 2,
         /*file1_range*/ file_1_ranges[0].clone(),
-        /*start_pos*/ 0
+        /*start_pos*/ 0,
+        /*buffer_size*/ 16384
       );
 
       out.file1_read_next();
