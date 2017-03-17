@@ -1,5 +1,7 @@
 # Introduction
 
+[![Build Status](https://travis-ci.org/edulix/paralio.svg?branch=master)](https://travis-ci.org/edulix/paralio)
+
 This repository contains some tools that execute some specific tasks in parallel, with the performance advantages this might have depending on the scenario.
 
 ## ppdump
