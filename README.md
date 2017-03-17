@@ -12,13 +12,13 @@ ppdump will probably not be so useful in future versions of PostgreSQL thanks to
 
 ### Example usage
 
-ppdump\
-	-c 'postgresql://agora_elections:password@localhost:5432/agora_elections'\
-	-s '|'\
-	-q "select distinct on (voter_id) voter_id,vote from vote where election_id=1 order by voter_id asc, created desc"\
-	-n "select count(distinct voter_id) from vote where election_id=1"\
-	-d .\
-	-j 3
+    ppdump\
+      -c 'postgresql://agora_elections:password@localhost:5432/agora_elections'\
+      -s '|'\
+      -q "select distinct on (voter_id) voter_id,vote from vote where election_id=1 order by voter_id asc, created desc"\
+      -n "select count(distinct voter_id) from vote where election_id=1"\
+      -d .\
+      -j 3
 
 ## pjoin
 
@@ -33,13 +33,13 @@ pjoin:
 
 ### Example usage
 
-pjoin\
-  -a ~/pjoin_ramdisk/all_sorted_ballots\
-  -b ~/pjoin_ramdisk/all_sorted_voterids\
-  -s '|'\
-  -f 1.1\
-  -o ~/pjoin_ramdisk/output\
-  -j 128
+    pjoin\
+      -a ~/pjoin_ramdisk/all_sorted_ballots\
+      -b ~/pjoin_ramdisk/all_sorted_voterids\
+      -s '|'\
+      -f 1.1\
+      -o ~/pjoin_ramdisk/output\
+      -j 128
 
 # TODO: Some unorganized documentation
 
