@@ -29,6 +29,16 @@ pjoin:
 - asumes both input files are ordered and formated with each element inside each file correspond with new-line-separated lines. 
 - the technical term for the kind of parallelization algorithm that executes the join is a "skew partition parallel join".
 
+### Example usage
+
+pjoin\
+  -a ~/pjoin_ramdisk/all_sorted_ballots\
+  -b ~/pjoin_ramdisk/all_sorted_voterids\
+  -s '|'\
+  -f 1.1\
+  -o ~/pjoin_ramdisk/output\
+  -j 128
+
 # TODO: Some unorganized documentation
 
 ## local
