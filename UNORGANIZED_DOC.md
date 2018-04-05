@@ -4,7 +4,7 @@
 
 cd ~/proyectos/agora/paralio
 cargo build --release
-scp target/release/pjoin dump_generator.py aws-ops:~/
+scp target/release/pjoin src/misc/dump_generator.py aws-ops:~/
 
 ## aws-ops
 
